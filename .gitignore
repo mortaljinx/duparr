@@ -36,3 +36,4 @@ restore_candidates.txt
 music_index.txt
 *_output.txt
 duplicates_detailed.txt
+*.bak
