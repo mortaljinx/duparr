@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* TELETEXT 8-BIT COLOR PALETTE */
+            --bg: #000000;
+            --surface: #000000;
+            --border: #FFFFFF;
+            --border-bright: #FFFF00; /* Yellow */
+            --text: #FFFFFF;
+            --muted: #00FFFF;         /* Cyan */
+            --accent: #FFFF00;        /* Yellow */
+            --danger: #FF0000;        /* Red */
+            --warn: #FF00FF;          /* Magenta */
+            --ok: #00FF00;            /* Green */
+            --info: #0000FF;          /* Blue */
+            --font-mono: 'VT323', monospace;
+            --font-display: 'VT323', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: var(--font-mono); 
+            font-size: 20px;
+            line-height: 1.2; 
+            min-height: 100vh; 
+            text-transform: uppercase;
+        }
+
+        /* Prevent uppercase on actual file paths and logs to maintain accuracy */
+        .track-path, .job-log, .group-artist { text-transform: none; }
+
+        header { 
+            background: var(--surface); 
+            border-bottom: 4px solid var(--border-bright); 
+            padding: 15px 20px; 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center; 
+            justify-content: space-between; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+        }
+        
+        .logo { font-size: 32px; font-weight: normal; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a { 
+            font-size: 20px; 
+            padding: 4px 10px; 
+            border: 2px solid var(--border); 
+            color: var(--text); 
+            text-decoration: none; 
+            background: var(--bg);
+        }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+        nav a:hover::before, nav a.active::before, nav a:hover::after, nav a.active::after { color: var(--bg); }
+
+        .stats-bar { 
+            background: var(--surface); 
+            border-bottom: 2px dashed var(--border); 
+            padding: 15px 20px; 
+            display: flex; 
+            gap: 20px; 
+            flex-wrap: wrap; 
+        }
+        .stat { display: flex; flex-direction: column; gap: 0px; min-width: 120px; }
+        .stat-label { color: var(--muted); font-size: 16px; letter-spacing: 1px; }
+        .stat-value { font-size: 28px; }
+        
+        .accent { color: var(--accent); }
+        .ok { color: var(--ok); }
+        .warn { color: var(--warn); }
+        .danger { color: var(--danger); }
+
+        .toolbar { padding: 15px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 4px solid var(--border); background: var(--surface); }
+        .toolbar-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .btn { 
+            font-family: var(--font-mono); 
+            font-size: 18px; 
+            padding: 6px 12px; 
+            border: 2px solid var(--border); 
+            background: var(--bg); 
+            color: var(--text); 
+            cursor: pointer; 
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px 0px var(--border);
+        }
+        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 2px 2px 0px 0px var(--border); transform: translate(2px, 2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: translate(4px, 4px); }
+        
+        .btn-primary { border-color: var(--accent); color: var(--accent); box-shadow: 4px 4px 0px 0px var(--accent); }
+        .btn-primary:hover { background: var(--accent); color: var(--bg); }
+        
+        .btn-ok { border-color: var(--ok); color: var(--ok); box-shadow: 4px 4px 0px 0px var(--ok); }
+        .btn-ok:hover { background: var(--ok); color: var(--bg); }
+        
+        .btn-warn { border-color: var(--warn); color: var(--warn); box-shadow: 4px 4px 0px 0px var(--warn); }
+        .btn-warn:hover { background: var(--warn); color: var(--bg); }
+
+        .filter-group { display: flex; margin-left: auto; gap: 0; }
+        .filter-group .btn { box-shadow: none; border-right: none; transform: none; }
+        .filter-group .btn:last-child { border-right: 2px solid var(--border); }
+        .filter-group .btn:hover { transform: none; box-shadow: none; }
+        .filter-group .btn.active { background: var(--text); color: var(--bg); }
+
+        .search-input { 
+            font-family: var(--font-mono); 
+            font-size: 18px; 
+            background: var(--bg); 
+            border: 2px solid var(--border); 
+            color: var(--accent); 
+            padding: 8px 12px; 
+            outline: none; 
+            width: 100%;
+            max-width: 300px;
+            text-transform: uppercase;
+        }
+        .search-input:focus { border-color: var(--accent); background: #111; }
+        .search-input::placeholder { color: var(--muted); }
+
+        /* JOB PANEL */
+        #job-panel { display: none; background: #111; border-bottom: 4px solid var(--accent); padding: 15px 20px; }
+        #job-panel.active { display: block; }
+        .job-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .job-status-text { color: var(--accent); font-size: 20px; animation: blink 1s step-end infinite; }
+        .job-log { background: var(--bg); border: 2px dashed var(--muted); padding: 10px; height: 160px; overflow-y: auto; font-size: 16px; color: var(--ok); }
+        .job-log .line { margin-bottom: 1px; }
+
+        /* PROGRESS BAR */
+        .progress-wrap { margin: 8px 0 10px; display: none; }
+        .progress-wrap.visible { display: block; }
+        .progress-track { background: #333; height: 6px; border: 1px solid var(--border); overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease; }
+        .progress-label { color: var(--muted); font-size: 16px; margin-top: 4px; text-transform: none; }
+        
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        .spinner::before { content: "[ WAIT ] "; color: var(--warn); animation: blink 1s step-end infinite; }
+
+        main { padding: 20px; }
+
+        /* Group card */
+        .group-card { border: 2px solid var(--border); margin-bottom: 15px; background: var(--bg); }
+        .group-card:hover { border-color: var(--border-bright); }
+        .group-card[data-confidence="HIGH"]   { border-left: 8px solid var(--ok); }
+        .group-card[data-confidence="MEDIUM"] { border-left: 8px solid var(--warn); }
+        .group-card[data-confidence="LOW"]    { border-left: 8px solid var(--danger); }
+
+        .group-header { display: flex; align-items: center; flex-wrap: wrap; padding: 12px 15px; cursor: pointer; gap: 15px; user-select: none; }
+        .group-header:hover { background: #111; }
+        .group-num { color: var(--warn); font-size: 18px; min-width: 40px; }
+        .group-title { flex: 1; font-size: 20px; min-width: 200px; }
+        .group-artist { color: var(--muted); font-size: 16px; width: 100%; max-width: 250px; }
+        .group-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .group-size { color: var(--accent); font-size: 18px; }
+        .chevron::before { content: "[+]"; color: var(--muted); }
+        .group-card.open .chevron::before { content: "[-]"; color: var(--text); }
+
+        .decision-bar { display: none; padding: 10px 15px; border-top: 2px dashed var(--border); border-bottom: 2px dashed var(--border); align-items: center; gap: 15px; flex-wrap: wrap; }
+        .group-card.open .decision-bar { display: flex; }
+        .decision-pill { font-size: 16px; padding: 2px 8px; border: 2px solid; }
+        .pill-fp     { color: var(--bg); background: var(--info); border-color: var(--info); }
+        .pill-high   { color: var(--bg); background: var(--ok);   border-color: var(--ok); }
+        .pill-medium { color: var(--bg); background: var(--warn); border-color: var(--warn); }
+        .pill-low    { color: var(--bg); background: var(--danger); border-color: var(--danger); }
+        .decision-text { color: var(--muted); font-size: 16px; }
+        .decision-text strong { color: var(--text); }
+        .decision-safe { margin-left: auto; color: var(--ok); font-size: 16px; animation: blink 2s step-end infinite; }
+
+        .group-body { display: none; }
+        .group-card.open .group-body { display: block; }
+
+        .track-row { padding: 15px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start; }
+        .track-row:last-child { border-bottom: none; }
+        
+        .track-icon { font-size: 20px; width: 20px; text-align: center; }
+        .track-details { flex: 1; min-width: 200px; }
+        .track-badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; justify-content: flex-end; }
+
+        .track-title { font-size: 20px; margin-bottom: 5px; word-break: break-all; }
+        .track-title.keep    { color: var(--ok); }
+        .track-title.dupe    { color: var(--text); }
+        .track-title.variant { color: var(--muted); }
+        
+        .track-label { display: inline-block; font-size: 16px; padding: 2px 6px; margin-right: 10px; border: 2px solid; }
+        .label-keep    { border-color: var(--ok); color: var(--ok); }
+        .label-remove  { border-color: var(--danger); color: var(--danger); }
+        .label-variant { border-color: var(--muted); color: var(--muted); }
+        
+        .track-path { color: var(--muted); font-size: 16px; word-break: break-all; margin-top: 5px; }
+        
+        .tag { font-size: 16px; color: var(--bg); background: var(--border); padding: 2px 6px; }
+        .tag.bright { background: var(--text); }
+        .tag.ok     { background: var(--ok); }
+        .tag.danger { background: var(--danger); }
+
+        .badge { font-size: 16px; padding: 2px 6px; border: 2px solid; }
+        .badge-high   { border-color: var(--ok);     color: var(--ok); }
+        .badge-medium { border-color: var(--warn);   color: var(--warn); }
+        .badge-low    { border-color: var(--danger); color: var(--danger); }
+        .badge-fp     { border-color: var(--info);   color: var(--info); }
+
+        .empty { text-align: center; padding: 80px 20px; color: var(--muted); border: 4px dashed var(--muted); margin: 20px; }
+        .empty h2 { font-size: 28px; color: var(--text); margin-bottom: 15px; }
+
+        .group-card.hidden { display: none; }
+        .pagination { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 30px 20px; flex-wrap: wrap; }
+        .page-info { color: var(--accent); font-size: 18px; margin-right: 10px; }
+        
+        /* Mobile Breakpoints */
+        @media (max-width: 768px) {
+            .stats-bar { gap: 10px; }
+            .stat { min-width: 45%; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar-group { justify-content: space-between; }
+            .btn { width: 100%; text-align: center; }
+            .search-input { max-width: none; }
+            .filter-group { width: 100%; justify-content: stretch; }
+            .filter-group .btn { flex: 1; }
+            .track-badges { width: 100%; justify-content: flex-start; margin-top: 10px; }
+            .track-row { flex-direction: column; }
+            .track-icon { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">DUPARR <span>[ DUPLICATE MANAGER ]</span></div>
+    <nav>
+        <a href="/" class="active">DASHBOARD</a>
+        <a href="/report">REPORT</a>
+        <a href="/undo">UNDO</a>
+        <a href="/logs">LOGS</a>
+    </nav>
+</header>
+
+<div class="stats-bar">
+    <div class="stat"><div class="stat-label">GROUPS FOUND</div><div class="stat-value accent" id="stat-groups">{{ stats.total_groups }}</div></div>
+    <div class="stat"><div class="stat-label">SPACE REC.</div><div class="stat-value accent" id="stat-size">{{ stats.total_size }}</div></div>
+    <div class="stat"><div class="stat-label">HIGH CONF.</div><div class="stat-value ok">{{ stats.high }}</div></div>
+    <div class="stat"><div class="stat-label">MED CONF.</div><div class="stat-value warn">{{ stats.medium }}</div></div>
+    <div class="stat"><div class="stat-label">LOW CONF.</div><div class="stat-value danger">{{ stats.low }}</div></div>
+</div>
+
+{% if cap_meta.capped %}
+<div style="background:var(--warn);color:var(--bg);padding:10px 20px;font-size:18px;text-align:center;border-bottom:2px solid var(--bg);">
+    &#9888; SHOWING {{ cap_meta.cap }} OF {{ cap_meta.total_groups }} GROUPS — APPLY THIS BATCH THEN RESCAN TO SEE MORE
+</div>
+{% endif %}
+
+<div class="toolbar">
+    <div class="toolbar-group" style="flex: 1;">
+        <button class="btn btn-ok" id="btn-scan" onclick="startJob('full_scan', this)">* SCAN + FIND</button>
+        <button class="btn btn-ok" id="btn-finddupes" onclick="startJob('find_dupes', this)">? DUPES ONLY</button>
+        <button class="btn btn-primary" id="btn-apply" onclick="confirmApply()">> APPLY ALL</button>
+        <button class="btn btn-warn" id="btn-covers" onclick="startJob('fetch_covers', this)"># COVERS</button>
+        <a href="/download" style="text-decoration:none; width:100%;"><button class="btn" style="width:100%;">v EXPORT</button></a>
+        <button class="btn" id="btn-erase" onclick="eraseDatabase()" style="border-color:var(--danger);color:var(--danger);box-shadow:4px 4px 0px 0px var(--danger);">X ERASE DB</button>
+    </div>
+    <div class="toolbar-group" style="flex: 1; justify-content: flex-end;">
+        <input class="search-input" type="text" placeholder="SEARCH TITLE / PATH..." id="search" oninput="filterSearch(this.value)">
+        <div class="filter-group">
+            <button class="btn active" onclick="filterConf('all', this)">ALL</button>
+            <button class="btn" onclick="filterConf('HIGH', this)">HIGH</button>
+            <button class="btn" onclick="filterConf('MEDIUM', this)">MED</button>
+            <button class="btn" onclick="filterConf('LOW', this)">LOW</button>
+        </div>
+    </div>
+</div>
+
+<div id="job-panel">
+    <div class="job-header">
+        <span class="spinner"></span>
+        <span class="job-status-text" id="job-status-text">WORKING...</span>
+        <span style="color:var(--muted); font-size:16px; margin-left:auto;" id="job-hint"></span>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label"></div>
+    </div>
+    <div class="job-log" id="job-log"></div>
+</div>
+
+<main>
+{% if groups %}
+{% for g in groups %}
+{% set top_conf = g.dupes[0].confidence if g.dupes else 'LOW' %}
+{% set total_size = g.dupes | sum(attribute='size') %}
+{% set dupe_count = g.dupes | length %}
+{% set variant_count = g.variants | length %}
+<div class="group-card" data-confidence="{{ top_conf }}" data-size="{{ total_size }}">
+
+    <div class="group-header" onclick="toggleGroup(this.parentElement)">
+        <div class="group-num">#{{ loop.index }}</div>
+        <div class="group-title">{{ g.keeper.title or 'Unknown' }}</div>
+        <div class="group-artist">{{ g.keeper.artist or '' }}</div>
+        <div class="group-meta">
+            {% if g.match_type == 'fingerprint' %}<span class="badge badge-fp">FP</span>{% endif %}
+            <span class="badge badge-{{ top_conf | lower }}">{{ top_conf }}</span>
+            <span style="color:var(--muted);font-size:16px;">{{ dupe_count }} DUPE{{ 'S' if dupe_count != 1 else '' }}{% if variant_count %} | {{ variant_count }} KEPT{% endif %}</span>
+            {% if total_size %}<span class="group-size">{{ "%.1f"|format(total_size/1024/1024) }} MB</span>{% endif %}
+        </div>
+        <div class="chevron"></div>
+    </div>
+
+    <div class="decision-bar">
+        {% if g.match_type == 'fingerprint' %}
+        <span class="decision-pill pill-fp">FINGERPRINT MATCH</span>
+        {% else %}
+        <span class="decision-pill pill-{{ top_conf | lower }}">METADATA MATCH</span>
+        {% endif %}
+        <span class="decision-pill pill-{{ top_conf | lower }}">{{ top_conf }} CONF.</span>
+        <span class="decision-text">
+            KEEPING <strong>BEST QUALITY</strong> |
+            {% if dupe_count == 1 %}1 DUPE{% else %}{{ dupe_count }} DUPES{% endif %} TO MOVE
+            {% if total_size %} | <strong>{{ "%.1f"|format(total_size/1024/1024) }} MB</strong> FREED{% endif %}
+        </span>
+        {% if top_conf == 'HIGH' %}
+        <span class="decision-safe">** SAFE **</span>
+        {% elif top_conf == 'MEDIUM' %}
+        <span class="decision-safe" style="color:var(--warn); animation:none;">?? REVIEW ??</span>
+        {% endif %}
+    </div>
+
+    <div class="group-body">
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--ok);">>></div>
+            <div class="track-details">
+                <div class="track-title keep">
+                    <span class="track-label label-keep">KEEP</span>{{ g.keeper.title or 'Unknown' }}
+                </div>
+                <div class="track-path">{{ g.keeper.path }}</div>
+            </div>
+            <div class="track-badges">
+                {% if g.keeper.format %}<span class="tag bright">{{ g.keeper.format | upper }}</span>{% endif %}
+                {% if g.keeper.bitrate %}<span class="tag bright">{{ g.keeper.bitrate }}kbps</span>{% endif %}
+                <span class="tag ok">SCORE {{ g.keeper.score }}</span>
+            </div>
+        </div>
+
+        {% for d in g.dupes %}
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--danger);">XX</div>
+            <div class="track-details">
+                <div class="track-title dupe">
+                    <span class="track-label label-remove">DEL.</span>{{ d.title or 'Unknown' }}
+                </div>
+                <div class="track-path">{{ d.path }}</div>
+                {% if d.reason %}<div style="color:var(--muted);font-size:16px;margin-top:5px;">{{ d.reason }}</div>{% endif %}
+            </div>
+            <div class="track-badges">
+                <span class="badge badge-{{ (d.confidence or 'low') | lower }}">{{ d.confidence or 'LOW' }}</span>
+                {% if d.format %}<span class="tag">{{ d.format | upper }}</span>{% endif %}
+                {% if d.bitrate %}<span class="tag">{{ d.bitrate }}kbps</span>{% endif %}
+                {% if d.size %}<span class="tag">{{ "%.1f"|format(d.size/1024/1024) }} MB</span>{% endif %}
+                <span class="tag danger">SCORE {{ d.score }}</span>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% for v in g.get('variants', []) %}
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--warn);">~~</div>
+            <div class="track-details">
+                <div class="track-title variant">
+                    <span class="track-label label-variant">VAR.</span>{{ v.title or 'Unknown' }}
+                </div>
+                <div class="track-path">{{ v.path }}</div>
+                <div style="color:var(--muted);font-size:16px;margin-top:5px;">PRESERVED — REMIX/LIVE/ALT</div>
+            </div>
+            <div class="track-badges"><span class="tag">KEPT</span></div>
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">
+    <h2>NO DUPLICATES DETECTED</h2>
+    <p>RUN A SCAN TO SEARCH FILES, OR LIBRARY IS ALREADY CLEAN.</p>
+    <br>
+    <button class="btn btn-ok" onclick="startJob('full_scan', this)">* INITIATE SCAN</button>
+</div>
+{% endif %}
+</main>
+
+<div class="pagination" id="pagination"></div>
+
+<script>
+let currentFilter = 'all';
+let currentSearch = '';
+let pollTimer = null;
+const PAGE_SIZE = 50;
+let currentPage = 1;
+
+function toggleGroup(card) { card.classList.toggle('open'); }
+
+function filterConf(level, btn) {
+    currentFilter = level;
+    currentPage = 1;
+    document.querySelectorAll('.filter-group .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyVisibility();
+}
+
+function filterSearch(val) {
+    currentSearch = val.toLowerCase();
+    currentPage = 1;
+    applyVisibility();
+}
+
+function applyVisibility() {
+    const allCards = Array.from(document.querySelectorAll('.group-card'));
+
+    const matching = allCards.filter(card => {
+        const conf = card.dataset.confidence;
+        const text = card.innerText.toLowerCase();
+        const confOk = currentFilter === 'all' || conf === currentFilter;
+        const searchOk = !currentSearch || text.includes(currentSearch);
+        return confOk && searchOk;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end   = start + PAGE_SIZE;
+    const pageCards = new Set(matching.slice(start, end));
+
+    allCards.forEach(card => {
+        card.classList.toggle('hidden', !pageCards.has(card));
+    });
+
+    renderPagination(matching.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+    const el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+    let html = `<span class="page-info">Showing ${Math.min((currentPage-1)*PAGE_SIZE+1, total)}–${Math.min(currentPage*PAGE_SIZE, total)} of ${total}</span>`;
+    html += `<button class="btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ Prev</button>`;
+
+    const start = Math.max(1, currentPage - 2);
+    const end   = Math.min(totalPages, currentPage + 2);
+    for (let p = start; p <= end; p++) {
+        html += `<button class="btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    html += `<button class="btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>Next ›</button>`;
+    el.innerHTML = html;
+}
+
+function goPage(p) {
+    currentPage = p;
+    applyVisibility();
+    window.scrollTo(0, 0);
+}
+
+function setButtonsDisabled(disabled) {
+    ['btn-scan','btn-finddupes','btn-apply','btn-covers','btn-erase'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+    });
+}
+
+function eraseDatabase() {
+    if (!confirm(
+        'ERASE TRACK DATABASE?\n\n' +
+        'This removes all scanned track data.\n' +
+        'Your music files are NOT affected.\n\n' +
+        'You will need to run a full scan afterwards.'
+    )) return;
+
+    // Second confirm — harder to dismiss accidentally
+    if (!confirm(
+        '!! FINAL WARNING !!\n\n' +
+        'ARE YOU SURE?\n\n' +
+        'All scan data will be permanently erased.\n' +
+        'Press OK to confirm.'
+    )) return;
+
+    fetch('/api/erase_database', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert('ERROR: ' + data.error);
+            } else {
+                alert('DATABASE ERASED.\nRun a full scan to rebuild.');
+                window.location.reload();
+            }
+        })
+        .catch(() => alert('Request failed.'));
+}
+
+function startJob(endpoint, btn) {
+    setButtonsDisabled(true);
+    document.getElementById('job-panel').classList.add('active');
+    document.getElementById('job-log').innerHTML = '';
+    document.getElementById('progress-wrap').classList.remove('visible');
+    document.getElementById('job-hint').textContent = endpoint === 'full_scan'
+        ? 'Large libraries may take 30-60 min'
+        : endpoint === 'apply_all' ? 'Moving files and rescanning...' : '';
+
+    fetch(`/api/${endpoint}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                setButtonsDisabled(false);
+                document.getElementById('job-panel').classList.remove('active');
+                return;
+            }
+            pollTimer = setInterval(pollStatus, 1500);
+        });
+}
+
+function confirmApply() {
+    const cards   = Array.from(document.querySelectorAll('.group-card:not(.hidden)'));
+    const totalMB = cards.reduce((sum, c) => sum + (parseFloat(c.dataset.size || 0) / 1024 / 1024), 0);
+    const sizeStr = totalMB > 1024
+        ? (totalMB / 1024).toFixed(1) + ' GB'
+        : totalMB.toFixed(1) + ' MB';
+    if (!confirm(
+        `MOVE DUPLICATES AND RESCAN?\n\n` +
+        `${cards.length} GROUPS | ${sizeStr} WILL BE FREED\n` +
+        `FILES GO TO /DUPLICATES - NOTHING DELETED.\n\n` +
+        `PROCEED?`
+    )) return;
+    startJob('apply_all', document.getElementById('btn-apply'));
+}
+
+function pollStatus() {
+    fetch('/api/status')
+        .then(r => r.json())
+        .then(data => {
+            const logEl = document.getElementById('job-log');
+            logEl.innerHTML = data.log.map(l => `<div class="line">${esc(l)}</div>`).join('');
+            logEl.scrollTop = logEl.scrollHeight;
+            document.getElementById('job-status-text').textContent =
+                data.status === 'done' ? '[ COMPLETE ]' :
+                data.status === 'error' ? '[ ERROR ]' :
+                '[ WORKING... ]';
+
+            // Progress bar
+            const p = data.progress || {};
+            const wrap  = document.getElementById('progress-wrap');
+            const fill  = document.getElementById('progress-fill');
+            const label = document.getElementById('progress-label');
+            if (p.total > 0) {
+                const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+                wrap.classList.add('visible');
+                fill.style.width = pct + '%';
+                if (p.phase === 'scanning') {
+                    label.textContent = `SCANNING: ${p.current.toLocaleString()} / ${p.total.toLocaleString()} TRACKS (${pct}%)`;
+                } else if (p.phase === 'deduping') {
+                    label.textContent = `FINDING DUPES: GROUP ${p.current.toLocaleString()} OF ${p.total.toLocaleString()} (${pct}%)`;
+                }
+            } else if (p.current > 0) {
+                wrap.classList.add('visible');
+                fill.style.width = '100%';
+                label.textContent = `SCANNED ${p.current.toLocaleString()} TRACKS`;
+            }
+
+            if (!data.running && (data.status === 'done' || data.status === 'error')) {
+                clearInterval(pollTimer);
+                setButtonsDisabled(false);
+                if (data.status === 'done') {
+                    document.getElementById('job-hint').textContent = 'Reloading...';
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    document.getElementById('job-hint').textContent = 'Check log for details';
+                }
+            }
+        });
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+fetch('/api/status').then(r => r.json()).then(data => {
+    if (data.running) {
+        setButtonsDisabled(true);
+        document.getElementById('job-panel').classList.add('active');
+        pollTimer = setInterval(pollStatus, 1500);
+    }
+});
+
+applyVisibility();
+</script>
+</body>
+</html>

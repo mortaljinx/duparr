@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — System Logs</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #000000;
+            --border: #FFFFFF;
+            --border-bright: #FFFF00;
+            --text: #FFFFFF;
+            --muted: #00FFFF;
+            --accent: #FFFF00;
+            --danger: #FF0000;
+            --ok: #00FF00;
+            --font-mono: 'VT323', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: var(--font-mono); 
+            font-size: 20px; 
+            line-height: 1.2; 
+            min-height: 100vh; 
+            text-transform: uppercase; 
+        }
+
+        header { 
+            background: var(--surface); 
+            border-bottom: 4px solid var(--border-bright); 
+            padding: 15px 20px; 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center; 
+            justify-content: space-between; 
+        }
+        
+        .logo { font-size: 32px; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a { 
+            font-size: 20px; 
+            padding: 4px 10px; 
+            border: 2px solid var(--border); 
+            color: var(--text); 
+            text-decoration: none; 
+        }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+
+        .toolbar { 
+            background: var(--surface); 
+            border-bottom: 2px dashed var(--border); 
+            padding: 12px 20px; 
+            display: flex; 
+            gap: 15px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+
+        .btn { 
+            font-family: var(--font-mono); 
+            font-size: 18px; 
+            padding: 6px 12px; 
+            border: 2px solid var(--border); 
+            background: var(--bg); 
+            color: var(--text); 
+            cursor: pointer; 
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px 0px var(--border);
+            text-decoration: none;
+        }
+        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 2px 2px 0px 0px var(--border); transform: translate(2px, 2px); }
+
+        .info { color: var(--muted); font-size: 18px; margin-left: auto; }
+
+        .console-container { padding: 20px; background: var(--bg); }
+
+        pre { 
+            background: #000;
+            color: var(--ok);
+            padding: 20px; 
+            border: 2px solid var(--border);
+            white-space: pre-wrap; 
+            word-break: break-all; 
+            font-size: 18px; 
+            text-transform: none;
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.2);
+        }
+
+        .empty { 
+            text-align: center; 
+            padding: 80px 20px; 
+            color: var(--muted); 
+            border: 4px dashed var(--muted); 
+            margin: 20px; 
+        }
+
+        @media (max-width: 600px) {
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .info { margin-left: 0; text-align: center; }
+            .btn { width: 100%; text-align: center; }
+            pre { font-size: 16px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">DUPARR <span>[ SYSTEM LOGS ]</span></div>
+    <nav>
+        <a href="/">DASHBOARD</a>
+        <a href="/report">REPORT</a>
+        <a href="/undo">UNDO</a>
+        <a href="/logs" class="active">LOGS</a>
+    </nav>
+</header>
+
+<div class="toolbar">
+    <a href="/logs" class="btn">* REFRESH LOG</a>
+    <a href="/api/logs/raw" class="btn" target="_blank">v VIEW RAW</a>
+    <div class="info">SYSTEM STATUS: <span style="color:var(--ok)">ONLINE</span></div>
+</div>
+
+<main class="console-container">
+    {% if logs %}
+    <pre id="log-output">{{ logs }}</pre>
+    {% else %}
+    <div class="empty">
+        <h2>NO LOG DATA RECORDED</h2>
+        <p>INITIATE A SCAN OR ACTION TO GENERATE SYSTEM OUTPUT.</p>
+    </div>
+    {% endif %}
+</main>
+
+<script>
+    window.onload = function() {
+        const log = document.getElementById('log-output');
+        if (log) window.scrollTo(0, document.body.scrollHeight);
+    };
+</script>
+
+</body>
+</html>

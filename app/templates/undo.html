@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — Undo</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* TELETEXT 8-BIT COLOR PALETTE */
+            --bg: #000000;
+            --surface: #000000;
+            --border: #FFFFFF;
+            --border-bright: #FFFF00; /* Yellow */
+            --text: #FFFFFF;
+            --muted: #00FFFF;         /* Cyan */
+            --accent: #FFFF00;        /* Yellow */
+            --danger: #FF0000;        /* Red */
+            --warn: #FF00FF;          /* Magenta */
+            --ok: #00FF00;            /* Green */
+            --info: #0000FF;          /* Blue */
+            --font-mono: 'VT323', monospace;
+            --font-display: 'VT323', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: var(--font-mono); 
+            font-size: 20px; 
+            line-height: 1.2; 
+            min-height: 100vh; 
+            text-transform: uppercase; 
+        }
+
+        /* Prevent uppercase on actual file paths and logs to maintain accuracy */
+        .file-path, .file-original, .job-log { text-transform: none; }
+
+        header { 
+            background: var(--surface); 
+            border-bottom: 4px solid var(--border-bright); 
+            padding: 15px 20px; 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center; 
+            justify-content: space-between; 
+        }
+        
+        .logo { font-size: 32px; font-weight: normal; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a { 
+            font-size: 20px; 
+            padding: 4px 10px; 
+            border: 2px solid var(--border); 
+            color: var(--text); 
+            text-decoration: none; 
+            background: var(--bg);
+        }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+        nav a:hover::before, nav a.active::before, nav a:hover::after, nav a.active::after { color: var(--bg); }
+
+        .summary-bar { 
+            background: var(--surface); 
+            border-bottom: 2px dashed var(--border); 
+            padding: 15px 20px; 
+            display: flex; 
+            gap: 20px; 
+            flex-wrap: wrap; 
+            align-items: center;
+        }
+        .stat { display: flex; flex-direction: column; gap: 0px; min-width: 120px; }
+        .stat-label { color: var(--muted); font-size: 16px; letter-spacing: 1px; }
+        .stat-value { font-size: 28px; color: var(--accent); }
+        .summary-note { margin-left: auto; color: var(--ok); font-size: 16px; }
+
+        .toolbar { padding: 15px 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; border-bottom: 4px solid var(--border); background: var(--surface); }
+
+        .btn { 
+            font-family: var(--font-mono); 
+            font-size: 18px; 
+            padding: 6px 12px; 
+            border: 2px solid var(--border); 
+            background: var(--bg); 
+            color: var(--text); 
+            cursor: pointer; 
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px 0px var(--border);
+        }
+        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 2px 2px 0px 0px var(--border); transform: translate(2px, 2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: translate(4px, 4px); }
+        
+        .btn-danger { border-color: var(--danger); color: var(--danger); box-shadow: 4px 4px 0px 0px var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: var(--bg); }
+        
+        .btn-ok { border-color: var(--ok); color: var(--ok); box-shadow: 4px 4px 0px 0px var(--ok); }
+        .btn-ok:hover { background: var(--ok); color: var(--bg); }
+
+        .search-input { 
+            font-family: var(--font-mono); 
+            font-size: 18px; 
+            background: var(--bg); 
+            border: 2px solid var(--border); 
+            color: var(--accent); 
+            padding: 8px 12px; 
+            outline: none; 
+            width: 100%;
+            max-width: 350px;
+            text-transform: uppercase;
+        }
+        .search-input:focus { border-color: var(--accent); background: #111; }
+        .search-input::placeholder { color: var(--muted); }
+
+        /* JOB PANEL */
+        #job-panel { display: none; background: #111; border-bottom: 4px solid var(--accent); padding: 15px 20px; }
+        #job-panel.active { display: block; }
+        .job-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .job-status-text { color: var(--accent); font-size: 20px; animation: blink 1s step-end infinite; }
+        .job-log { background: var(--bg); border: 2px dashed var(--muted); padding: 10px; height: 160px; overflow-y: auto; font-size: 16px; color: var(--ok); }
+        
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        .spinner::before { content: "[ WAIT ] "; color: var(--warn); animation: blink 1s step-end infinite; }
+
+        main { padding: 20px; }
+
+        .file-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            align-items: center; 
+            border: 2px solid var(--border); 
+            padding: 12px 15px; 
+            margin-bottom: 10px; 
+            background: var(--bg);
+        }
+        .file-row:hover { border-color: var(--border-bright); background: #111; }
+        .file-row.conflict { border-color: var(--warn); border-style: dashed; opacity: 0.8; }
+        
+        .file-info { flex: 1; min-width: 250px; }
+        .file-name { font-size: 22px; color: var(--text); margin-bottom: 5px; word-break: break-all; }
+        .file-path { color: var(--muted); font-size: 16px; word-break: break-all; }
+        .file-original { color: var(--ok); font-size: 16px; margin-top: 5px; }
+        .file-original.conflict { color: var(--warn); }
+        
+        .file-size { color: var(--accent); font-size: 20px; white-space: nowrap; min-width: 80px; text-align: right; }
+        .file-row.hidden { display: none; }
+
+        .empty { text-align: center; padding: 80px 20px; color: var(--muted); border: 4px dashed var(--muted); margin: 20px; }
+        .empty h2 { font-size: 28px; color: var(--text); margin-bottom: 15px; }
+
+        .pagination { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 30px 20px; flex-wrap: wrap; }
+        .page-info { color: var(--accent); font-size: 18px; margin-right: 10px; }
+
+        /* Mobile Breakpoints */
+        @media (max-width: 768px) {
+            .summary-bar { gap: 10px; }
+            .stat { min-width: 45%; }
+            .summary-note { margin-left: 0; width: 100%; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .search-input { max-width: none; }
+            .file-row { flex-direction: column; align-items: stretch; }
+            .file-size { text-align: left; margin-bottom: 10px; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">DUPARR <span>[ DUPLICATE MANAGER ]</span></div>
+    <nav>
+        <a href="/">DASHBOARD</a>
+        <a href="/report">REPORT</a>
+        <a href="/undo" class="active">UNDO</a>
+        <a href="/logs">LOGS</a>
+    </nav>
+</header>
+
+<div class="summary-bar">
+    <div class="stat"><div class="stat-label">FILES IN /DUPLICATES</div><div class="stat-value">{{ total_count }}</div></div>
+    <div class="stat"><div class="stat-label">TOTAL SIZE</div><div class="stat-value">{{ total_size }}</div></div>
+    <div class="summary-note">[ FILES HERE ARE SAFE - NO DELETIONS ]</div>
+</div>
+
+<div class="toolbar">
+    {% if files %}
+    <button class="btn btn-danger" onclick="confirmUndoAll()">&lt;&lt; RESTORE ALL FILES</button>
+    {% endif %}
+    <input class="search-input" type="text" placeholder="SEARCH FILENAME / PATH..." oninput="filterSearch(this.value)">
+    <span style="color:var(--muted); font-size:16px; margin-left:auto; display:none;">CLICK A FILE TO RESTORE</span>
+</div>
+
+<div id="job-panel">
+    <div class="job-header">
+        <span class="spinner"></span>
+        <span class="job-status-text" id="job-status-text">RESTORING...</span>
+    </div>
+    <div class="job-log" id="job-log"></div>
+</div>
+
+<main>
+{% if files %}
+{% for f in files %}
+<div class="file-row {% if f.exists %}conflict{% endif %}" data-path="{{ f.dup_path }}" id="row-{{ loop.index }}">
+    <div class="file-info">
+        <div class="file-name">{{ f.name }}</div>
+        <div class="file-path">SRC: {{ f.rel }}</div>
+        {% if f.exists %}
+        <div class="file-original conflict">[ !! ] CONFLICT: FILE ALREADY EXISTS AT DESTINATION</div>
+        {% elif f.original %}
+        <div class="file-original">DST: {{ f.original }}</div>
+        {% endif %}
+    </div>
+    <div class="file-size">{{ "%.1f"|format(f.size/1024/1024) }} MB</div>
+    <div>
+        {% if not f.exists %}
+        <button class="btn btn-ok" onclick="restoreFile('{{ f.dup_path }}', 'row-{{ loop.index }}')">&lt;&lt; RESTORE</button>
+        {% else %}
+        <button class="btn" disabled>[ LOCKED ]</button>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">
+    <h2>NO FILES IN /DUPLICATES</h2>
+    <p>FILES YOU MOVE WILL APPEAR HERE FOR RECOVERY.</p>
+</div>
+{% endif %}
+</main>
+
+<div class="pagination" id="pagination"></div>
+
+<script>
+let currentSearch = '';
+let currentPage = 1;
+const PAGE_SIZE = 100;
+let pollTimer = null;
+
+function filterSearch(val) {
+    currentSearch = val.toLowerCase();
+    currentPage = 1;
+    applyVisibility();
+}
+
+function applyVisibility() {
+    const rows = Array.from(document.querySelectorAll('.file-row'));
+    const matching = rows.filter(r => !currentSearch || r.innerText.toLowerCase().includes(currentSearch));
+    const totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageSet = new Set(matching.slice(start, start + PAGE_SIZE));
+    rows.forEach(r => r.classList.toggle('hidden', !pageSet.has(r)));
+    renderPagination(matching.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+    const el = document.getElementById('pagination');
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    let html = `<span class="page-info">PAGE ${currentPage}/${totalPages} (${total} ITEMS)</span>`;
+    html += `<button class="btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>&lt;&lt; PREV</button>`;
+    const s = Math.max(1,currentPage-2), e = Math.min(totalPages,currentPage+2);
+    for (let p=s;p<=e;p++) html += `<button class="btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    html += `<button class="btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>NEXT &gt;&gt;</button>`;
+    el.innerHTML = html;
+}
+
+function goPage(p) { currentPage = p; applyVisibility(); window.scrollTo(0,0); }
+
+function restoreFile(dupPath, rowId) {
+    if (!confirm('RESTORE THIS FILE TO ORIGINAL LOCATION? (Y/N)')) return;
+    fetch('/api/undo', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dup_path: dupPath})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const row = document.getElementById(rowId);
+            if (row) row.style.opacity = '0.3';
+            setTimeout(() => { if (row) row.remove(); applyVisibility(); }, 600);
+        } else {
+            alert('ERROR: ' + (data.error || 'UNKNOWN ERROR'));
+        }
+    });
+}
+
+function confirmUndoAll() {
+    if (!confirm('RESTORE ALL FILES TO ORIGINAL LOCATIONS?\n\n[ NOTE: EXISTING FILES WILL BE SKIPPED ]\n\nPROCEED? (Y/N)')) return;
+    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+    document.getElementById('job-panel').classList.add('active');
+    document.getElementById('job-log').innerHTML = '';
+    fetch('/api/undo_all', {method:'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('ERROR: ' + data.error); return; }
+            pollTimer = setInterval(pollStatus, 1500);
+        });
+}
+
+function pollStatus() {
+    fetch('/api/status').then(r => r.json()).then(data => {
+        const logEl = document.getElementById('job-log');
+        logEl.innerHTML = data.log.map(l => `<div class="line">${esc(l)}</div>`).join('');
+        logEl.scrollTop = logEl.scrollHeight;
+        document.getElementById('job-status-text').textContent =
+            data.status === 'done' ? '[ OK ] COMPLETE' :
+            data.status === 'error' ? '[ !! ] ERROR' : 'RESTORING...';
+        if (!data.running && (data.status === 'done' || data.status === 'error')) {
+            clearInterval(pollTimer);
+            if (data.status === 'done') setTimeout(() => window.location.reload(), 1500);
+        }
+    });
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+applyVisibility();
+</script>
+</body>
+</html>

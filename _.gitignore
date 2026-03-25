@@ -1,0 +1,38 @@
+# ── Runtime data ──────────────────────────────────────────────────────────────
+# These are generated at runtime — never commit
+ui/dupes.json
+ui/dupes_report.txt
+ui/report.json
+ui/history.json
+data/
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+ui/venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+.eaDir/
+Thumbs.db
+desktop.ini
+
+# ── Personal scan outputs (should never be committed) ─────────────────────────
+duplicates_list.txt
+dedupe_*.txt
+final_*.txt
+dupes-report*.txt
+restore_candidates.txt
+music_index.txt
+*_output.txt
+duplicates_detailed.txt

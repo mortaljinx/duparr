@@ -1,0 +1,11 @@
+# Don't copy these into the Docker build context
+ui/venv/
+ui/dupes.json
+data/
+__pycache__/
+*.pyc
+*.log
+.git/
+.gitignore
+*.txt
+README.md

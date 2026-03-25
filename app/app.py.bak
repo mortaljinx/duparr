@@ -1,0 +1,569 @@
+"""
+Duparr UI — Flask web interface with live log streaming
+"""
+
+from flask import Flask, render_template, jsonify, send_file
+import json
+import os
+import shutil
+import subprocess
+import threading
+import sys
+from datetime import datetime
+
+app = Flask(__name__, template_folder="/app/templates")
+
+DUPES_FILE   = "/ui/dupes.json"
+REPORT_FILE  = "/ui/report.json"
+HISTORY_FILE = "/data/job_history.json"
+LOG_FILE     = "/data/duparr.log"
+
+_job = {
+    "running":  False,
+    "status":   "",
+    "log":      [],
+    "lock":     threading.Lock(),
+    "progress": {"current": 0, "total": 0, "phase": ""},
+}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _load_dupes():
+    try:
+        with open(DUPES_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _load_report():
+    try:
+        with open(REPORT_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_report(data: dict):
+    try:
+        os.makedirs("/ui", exist_ok=True)
+        existing = _load_report()
+        existing.update(data)
+        with open(REPORT_FILE, "w") as f:
+            json.dump(existing, f, indent=2)
+    except Exception:
+        pass
+
+
+def _load_history() -> list:
+    try:
+        with open(HISTORY_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _append_history(entry: dict):
+    """Append a job entry to the history file. Keeps last 50 entries."""
+    try:
+        os.makedirs("/data", exist_ok=True)
+        history = _load_history()
+        history.append(entry)
+        history = history[-50:]  # keep last 50
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+    except Exception:
+        pass
+
+
+def _fmt_bytes(b):
+    if not b:
+        return "0 B"
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if b < 1024:
+            return f"{b:.1f} {unit}"
+        b /= 1024
+    return f"{b:.1f} TB"
+
+
+def _now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def _write_log(line: str):
+    try:
+        with open(LOG_FILE, "a") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+
+def _run_cmd_streaming(args, label):
+    """Run command with live line-by-line output streamed to job log and disk."""
+    header = f"\n{'='*60}\n▶ {label} — {_now()}\n{'='*60}"
+    _job["log"].append(f"▶ {label}")
+    _job["progress"] = {"current": 0, "total": 0, "phase": label}
+    _write_log(header)
+
+    cmd = [sys.executable, "-u", "/app/main.py"] + args
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    full_output = []
+
+    import re as _re
+    _scan_progress = _re.compile(r"Scanned (\d+) new/changed tracks")
+    _dupe_progress = _re.compile(r"Group (\d+)/(\d+)")
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1
+        )
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                _job["log"].append(line)
+                full_output.append(line)
+                _write_log(line)
+                if len(_job["log"]) > 500:
+                    _job["log"] = _job["log"][-400:]
+                # Parse progress from scanner output
+                m = _scan_progress.search(line)
+                if m:
+                    _job["progress"]["current"] = int(m.group(1))
+                    _job["progress"]["phase"] = "scanning"
+                # Parse total from scanner upfront count
+                if "Total files to check:" in line:
+                    m2 = _re.search(r"Total files to check: (\d+)", line)
+                    if m2:
+                        _job["progress"]["total"] = int(m2.group(1))
+                m = _dupe_progress.search(line)
+                if m:
+                    _job["progress"]["current"] = int(m.group(1))
+                    _job["progress"]["total"]   = int(m.group(2))
+                    _job["progress"]["phase"]   = "deduping"
+                if "✅ Scanned" in line:
+                    m2 = _re.search(r"Scanned (\d+)", line)
+                    if m2:
+                        _job["progress"]["current"] = int(m2.group(1))
+                        _job["progress"]["total"]   = int(m2.group(1))
+        proc.wait()
+        if proc.returncode != 0:
+            msg = f"⚠️  Exit code {proc.returncode}"
+            _job["log"].append(msg)
+            _write_log(msg)
+    except Exception as e:
+        msg = f"❌ {e}"
+        _job["log"].append(msg)
+        _write_log(msg)
+
+    return "\n".join(full_output)
+
+
+def _parse_scan_output(output: str) -> dict:
+    count = 0
+    for line in output.splitlines():
+        if "✅ Scanned" in line:
+            try:
+                count = int(line.strip().split()[1])
+            except Exception:
+                pass
+        elif "Scanned" in line and "tracks" in line:
+            try:
+                count = int(line.strip().split()[1])
+            except Exception:
+                pass
+    return {"tracks_scanned": count, "last_scan": _now()}
+
+
+def _parse_dupes_output(output: str) -> dict:
+    groups = 0
+    for line in output.splitlines():
+        if "duplicate group(s)" in line:
+            try:
+                groups = int(line.strip().split()[1])
+            except Exception:
+                pass
+    return {"dupe_groups_found": groups, "last_dupe_scan": _now()}
+
+
+def _parse_move_output(output: str) -> dict:
+    moved = sum(1 for l in output.splitlines() if "MOVING" in l)
+    freed_bytes = 0
+    freed_str = "0 B"
+    for line in output.splitlines():
+        if "Freed" in line:
+            parts = line.strip().split()
+            if len(parts) >= 3:
+                freed_str = f"{parts[-2]} {parts[-1]}"
+    return {
+        "last_move":            _now(),
+        "files_moved_last_run": moved,
+        "space_freed_last_run": freed_str,
+    }
+
+
+def _background_job(steps, job_type="job"):
+    with _job["lock"]:
+        if _job["running"]:
+            return
+        _job["running"] = True
+        _job["log"] = []
+
+    started_at = _now()
+    history_entry = {
+        "type":       job_type,
+        "started_at": started_at,
+        "status":     "running",
+        "steps":      [],
+    }
+
+    try:
+        for label, args, parse_fn in steps:
+            _job["status"] = label
+            output = _run_cmd_streaming(args, label)
+
+            step_result = {"label": label}
+            if parse_fn:
+                parsed = parse_fn(output)
+                _save_report(parsed)
+                step_result.update(parsed)
+            history_entry["steps"].append(step_result)
+
+        # Navidrome
+        nd_url  = os.environ.get("NAVIDROME_URL", "")
+        nd_user = os.environ.get("NAVIDROME_USER", "")
+        nd_pass = os.environ.get("NAVIDROME_PASSWORD", "")
+        if nd_url and nd_user:
+            import urllib.request, urllib.parse
+            _job["log"].append("🎵 Triggering Navidrome rescan...")
+            try:
+                params = urllib.parse.urlencode({"u": nd_user, "p": nd_pass,
+                                                 "v": "1.16.1", "c": "duparr", "f": "json"})
+                urllib.request.urlopen(f"{nd_url}/rest/startScan?{params}", timeout=10)
+                _job["log"].append("✅ Navidrome scan triggered")
+            except Exception as e:
+                _job["log"].append(f"⚠️  Navidrome: {e}")
+
+        _job["status"] = "done"
+        _job["log"].append("✅ Done")
+        history_entry["status"] = "done"
+        history_entry["finished_at"] = _now()
+
+    except Exception as e:
+        _job["status"] = "error"
+        _job["log"].append(f"❌ {e}")
+        history_entry["status"] = "error"
+        history_entry["error"] = str(e)
+    finally:
+        _job["running"] = False
+        _append_history(history_entry)
+
+
+# ── Undo helpers ──────────────────────────────────────────────────────────────
+
+def _dup_dir():
+    return os.environ.get("DUP_DIR", "/duplicates")
+
+
+def _music_dir():
+    return os.environ.get("MUSIC_DIR", "/music-rw")
+
+
+def _list_moved_files() -> list:
+    """Walk /duplicates and return all audio files with their original path."""
+    dup_dir   = _dup_dir()
+    music_dir = _music_dir()
+    results   = []
+    audio_ext = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wma", ".aac", ".wav", ".aiff"}
+
+    if not os.path.exists(dup_dir):
+        return results
+
+    for root, dirs, files in os.walk(dup_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for fname in files:
+            if os.path.splitext(fname)[1].lower() not in audio_ext:
+                continue
+            dup_path = os.path.join(root, fname)
+            # Reconstruct original path
+            try:
+                rel = os.path.relpath(dup_path, dup_dir)
+                # Strip _dup suffix if present
+                if rel.endswith("_dup" + os.path.splitext(rel)[1]):
+                    base, ext = os.path.splitext(rel)
+                    rel = base[:-4] + ext
+                original = os.path.join(music_dir, rel)
+            except Exception:
+                original = ""
+            results.append({
+                "dup_path":    dup_path,
+                "original":    original,
+                "exists":      os.path.exists(original),
+                "size":        os.path.getsize(dup_path),
+                "name":        fname,
+                "rel":         os.path.relpath(dup_path, dup_dir),
+            })
+
+    results.sort(key=lambda x: x["rel"])
+    return results
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    data = _load_dupes()
+    total_size = sum(d.get("size") or 0 for g in data for d in g.get("dupes", []))
+    stats = {
+        "total_groups": len(data),
+        "total_size":   _fmt_bytes(total_size),
+        "high":   sum(1 for g in data if any(d.get("confidence") == "HIGH"   for d in g.get("dupes", []))),
+        "medium": sum(1 for g in data if any(d.get("confidence") == "MEDIUM" for d in g.get("dupes", []))),
+        "low":    sum(1 for g in data if all(d.get("confidence") == "LOW"    for d in g.get("dupes", []))),
+    }
+    return render_template("index.html", groups=data, stats=stats)
+
+
+@app.route("/report")
+def report():
+    data    = _load_report()
+    dupes   = _load_dupes()
+    history = _load_history()
+    total_size = sum(d.get("size") or 0 for g in dupes for d in g.get("dupes", []))
+    data["current_recoverable"] = _fmt_bytes(total_size)
+    data["current_groups"]      = len(dupes)
+    return render_template("report.html", report=data, history=history)
+
+
+@app.route("/undo")
+def undo_page():
+    files = _list_moved_files()
+    total_size = sum(f["size"] for f in files)
+    return render_template("undo.html", files=files,
+                           total_count=len(files),
+                           total_size=_fmt_bytes(total_size))
+
+
+@app.route("/api/undo", methods=["POST"])
+def api_undo():
+    """Restore a single file from /duplicates to its original path."""
+    data     = request_json()
+    dup_path = data.get("dup_path", "")
+
+    if not dup_path:
+        return jsonify({"error": "No path provided"}), 400
+
+    # Safety: path must be inside DUP_DIR
+    dup_dir = _dup_dir()
+    if not os.path.abspath(dup_path).startswith(os.path.abspath(dup_dir)):
+        return jsonify({"error": "Invalid path"}), 400
+
+    if not os.path.exists(dup_path):
+        return jsonify({"error": "File not found in duplicates"}), 404
+
+    try:
+        rel      = os.path.relpath(dup_path, dup_dir)
+        original = os.path.join(_music_dir(), rel)
+        os.makedirs(os.path.dirname(original), exist_ok=True)
+
+        if os.path.exists(original):
+            return jsonify({"error": f"File already exists at original path"}), 409
+
+        shutil.move(dup_path, original)
+        _append_history({
+            "type":       "undo",
+            "started_at": _now(),
+            "finished_at": _now(),
+            "status":     "done",
+            "steps":      [{"label": f"Restored: {os.path.basename(original)}"}],
+        })
+        return jsonify({"ok": True, "restored_to": original})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/undo_all", methods=["POST"])
+def api_undo_all():
+    """Restore ALL files from /duplicates back to their original paths."""
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+
+    def _do_undo_all():
+        with _job["lock"]:
+            _job["running"] = True
+            _job["log"] = []
+        _job["status"] = "Restoring files"
+
+        files   = _list_moved_files()
+        restored = 0
+        skipped  = 0
+        errors   = 0
+
+        try:
+            for f in files:
+                dup_path = f["dup_path"]
+                original = f["original"]
+                if not original:
+                    skipped += 1
+                    continue
+                if os.path.exists(original):
+                    _job["log"].append(f"⏭️  SKIP (exists): {os.path.basename(original)}")
+                    skipped += 1
+                    continue
+                try:
+                    os.makedirs(os.path.dirname(original), exist_ok=True)
+                    shutil.move(dup_path, original)
+                    _job["log"].append(f"✅ Restored: {os.path.basename(original)}")
+                    restored += 1
+                except Exception as e:
+                    _job["log"].append(f"❌ {os.path.basename(dup_path)}: {e}")
+                    errors += 1
+
+                if len(_job["log"]) > 500:
+                    _job["log"] = _job["log"][-400:]
+
+            summary = f"✅ Done — {restored} restored, {skipped} skipped, {errors} errors"
+            _job["log"].append(summary)
+            _job["status"] = "done"
+            _append_history({
+                "type":        "undo_all",
+                "started_at":  _now(),
+                "finished_at": _now(),
+                "status":      "done",
+                "steps":       [{"label": summary}],
+            })
+        except Exception as e:
+            _job["status"] = "error"
+            _job["log"].append(f"❌ {e}")
+        finally:
+            _job["running"] = False
+
+    threading.Thread(target=_do_undo_all, daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/status")
+def api_status():
+    return jsonify({
+        "running":  _job["running"],
+        "status":   _job["status"],
+        "log":      _job["log"][-100:],
+        "progress": _job["progress"],
+    })
+
+
+@app.route("/api/report")
+def api_report():
+    return jsonify(_load_report())
+
+
+@app.route("/api/history")
+def api_history():
+    return jsonify(_load_history())
+
+
+@app.route("/api/scan", methods=["POST"])
+def api_scan():
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Scanning library", ["scan"], _parse_scan_output),
+    ], "scan"), daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/find_dupes", methods=["POST"])
+def api_find_dupes():
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Finding duplicates", ["dupes", "--dry-run"], _parse_dupes_output),
+    ], "find_dupes"), daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/apply_all", methods=["POST"])
+def api_apply_all():
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Moving duplicates",    ["dupes", "--move"],    _parse_move_output),
+        ("Rescanning library",   ["scan"],               _parse_scan_output),
+        ("Refreshing dupe list", ["dupes", "--dry-run"], _parse_dupes_output),
+    ], "apply_all"), daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/full_scan", methods=["POST"])
+def api_full_scan():
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Scanning library",   ["scan"],               _parse_scan_output),
+        ("Finding duplicates", ["dupes", "--dry-run"], _parse_dupes_output),
+    ], "full_scan"), daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/fetch_covers", methods=["POST"])
+def api_fetch_covers():
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Fetching covers", ["covers", "--fetch"], None),
+    ], "fetch_covers"), daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/logs")
+def logs():
+    content = ""
+    line_count = 0
+    try:
+        with open(LOG_FILE) as f:
+            lines = f.read().splitlines()[-500:]
+        content = "\n".join(lines)
+        line_count = len(lines)
+    except FileNotFoundError:
+        content = ""
+    except Exception as e:
+        content = f"Error reading log: {e}"
+    return render_template("logs.html", content=content, line_count=line_count)
+
+
+@app.route("/download")
+def download():
+    data  = _load_dupes()
+    lines = []
+    for i, g in enumerate(data, 1):
+        lines.append(f"GROUP {i} [{g.get('match_type','?').upper()}]")
+        lines.append(f"  KEEP: {g['keeper'].get('title')} — {g['keeper'].get('path')}")
+        for d in g.get("dupes", []):
+            mb = f"{(d.get('size') or 0) / 1024 / 1024:.1f} MB"
+            lines.append(f"  MOVE [{d.get('confidence','?')}] {mb}: {d.get('path')}")
+        for v in g.get("variants", []):
+            lines.append(f"  KEPT VARIANT: {v.get('path')}")
+        lines.append("")
+    tmp = "/tmp/duparr_report.txt"
+    with open(tmp, "w") as f:
+        f.write("\n".join(lines))
+    return send_file(tmp, as_attachment=True, download_name="duparr_report.txt")
+
+
+def request_json():
+    from flask import request
+    try:
+        return request.get_json() or {}
+    except Exception:
+        return {}
+
+
+if __name__ == "__main__":
+    os.makedirs("/ui",   exist_ok=True)
+    os.makedirs("/data", exist_ok=True)
+    app.run(host="0.0.0.0", port=5045, debug=False)

@@ -1,0 +1,27 @@
+services:
+  duparr:
+    image: duparr-local
+    container_name: duparr
+    restart: unless-stopped
+    ports:
+      - "5045:5045"
+    volumes:
+      - /mnt/nas/data/media/music:/music:ro
+      - /mnt/nas/data/media/music:/music-rw
+      - /mnt/nas/data/media/duplicates:/duplicates
+      - /mnt/nvme/docker/duparr/ui:/ui
+      - duparr-data:/data
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MUSIC_DIR: /music-rw
+      DUP_DIR: /duplicates
+      DB_PATH: /data/music.db
+      USE_FINGERPRINT: "true"
+      FPCALC_PATH: /usr/bin/fpcalc
+      COVER_SOURCES: musicbrainz,itunes
+      COVER_MIN_SIZE: "300"
+      COVER_EMBED: "true"
+      COVER_SAVE_FILE: "true"
+
+volumes:
+  duparr-data:

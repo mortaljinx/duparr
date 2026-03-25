@@ -1,0 +1,43 @@
+"""
+MusicCleaner configuration
+All values can be overridden via environment variables.
+"""
+
+import os
+
+# Directories
+MUSIC_DIR   = os.getenv("MUSIC_DIR",   "/music")
+DUP_DIR     = os.getenv("DUP_DIR",     "/duplicates")
+DB_PATH     = os.getenv("DB_PATH",     "/data/music.db")
+
+# Fingerprinting
+FPCALC_PATH = os.getenv("FPCALC_PATH", "/usr/bin/fpcalc")
+USE_FINGERPRINT = os.getenv("USE_FINGERPRINT", "true").lower() == "true"
+
+# Duplicate detection
+# Tracks within this many seconds of each other are considered same duration
+DURATION_TOLERANCE_SECS = int(os.getenv("DURATION_TOLERANCE", "3"))
+
+# Cover fetching
+# Sources tried in order: musicbrainz, lastfm, itunes
+COVER_SOURCES = os.getenv("COVER_SOURCES", "musicbrainz,itunes").split(",")
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY", "")  # optional, for Last.fm
+COVER_MIN_SIZE = int(os.getenv("COVER_MIN_SIZE", "300"))  # min pixel dimension
+COVER_EMBED = os.getenv("COVER_EMBED", "true").lower() == "true"
+COVER_SAVE_FILE = os.getenv("COVER_SAVE_FILE", "true").lower() == "true"
+
+# Navidrome integration
+NAVIDROME_URL      = os.getenv("NAVIDROME_URL", "")        # e.g. http://navidrome:4533
+NAVIDROME_USER     = os.getenv("NAVIDROME_USER", "")
+NAVIDROME_PASSWORD = os.getenv("NAVIDROME_PASSWORD", "")
+
+# Supported audio extensions
+AUDIO_EXTENSIONS = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wma", ".aac", ".wav", ".aiff"}
+
+# Scoring weights
+SCORE_FLAC         = 50
+SCORE_320KBPS      = 30
+SCORE_192KBPS      = 20
+SCORE_HAS_COVER    = 10
+SCORE_HAS_TAGS     = 10
+SCORE_LARGER_FILE  = 5   # tiebreaker: larger file within same format
