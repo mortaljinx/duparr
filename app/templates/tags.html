@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — Tag Fixer</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:           #000000;
+            --surface:      #000000;
+            --border:       #FFFFFF;
+            --border-bright:#FFFF00;
+            --bright:       #FFFF00;
+            --text:         #FFFFFF;
+            --muted:        #00FFFF;
+            --cyan:         #00FFFF;
+            --accent:       #FFFF00;
+            --ok:           #00FF00;
+            --green:        #00FF00;
+            --danger:       #FF0000;
+            --red:          #FF0000;
+            --warn:         #FF00FF;
+            --magenta:      #FF00FF;
+            --dim:          #999999;
+            --vdim:         #777777;
+            --font-mono:    'VT323', monospace;
+            --font:         'VT323', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 20px;
+            line-height: 1.2;
+            min-height: 100vh;
+            text-transform: uppercase;
+        }
+
+        .folder-path, .artist-list { text-transform: none; }
+
+        header {
+            background: var(--surface);
+            border-bottom: 4px solid var(--border-bright);
+            padding: 15px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo { font-size: 32px; font-weight: normal; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a {
+            font-size: 20px;
+            padding: 4px 10px;
+            border: 2px solid var(--border);
+            color: var(--text);
+            text-decoration: none;
+            background: var(--bg);
+        }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after  { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+        nav a:hover::before, nav a.active::before,
+        nav a:hover::after,  nav a.active::after  { color: var(--bg); }
+
+        .stats-bar {
+            background: var(--surface);
+            border-bottom: 2px dashed var(--border);
+            padding: 15px 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .stat { display: flex; flex-direction: column; min-width: 120px; }
+        .stat-label { color: var(--muted); font-size: 16px; }
+        .stat-value { font-size: 28px; }
+
+        .toolbar {
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 4px solid var(--border);
+            background: var(--surface);
+        }
+
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            padding: 6px 12px;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px 0px var(--border);
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 2px 2px 0px 0px var(--border); transform: translate(2px, 2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: translate(4px, 4px); }
+
+        .btn-ok { border-color: var(--ok); color: var(--ok); box-shadow: 4px 4px 0px 0px var(--ok); }
+        .btn-ok:hover { background: var(--ok); color: var(--bg); }
+
+        main { padding: 20px; }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+        .loading h2 { font-size: 24px; margin-bottom: 10px; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .group-card {
+            border: 2px solid var(--border);
+            margin-bottom: 15px;
+            background: var(--bg);
+        }
+        .group-card:hover { border-color: var(--border-bright); }
+        .group-card[data-confidence="HIGH"]   { border-left: 8px solid var(--ok); }
+        .group-card[data-confidence="MEDIUM"] { border-left: 8px solid var(--warn); }
+        .group-card[data-confidence="LOW"]    { border-left: 8px solid var(--danger); }
+
+        .group-header {
+            padding: 12px 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .group-album { font-size: 22px; flex: 1; min-width: 200px; color: var(--accent); }
+        .group-folder { color: var(--muted); font-size: 15px; width: 100%; }
+
+        .badge { font-size: 16px; padding: 2px 6px; border: 2px solid; }
+        .badge-high   { border-color: var(--ok);     color: var(--ok); }
+        .badge-medium { border-color: var(--warn);   color: var(--warn); }
+        .badge-low    { border-color: var(--danger); color: var(--danger); }
+
+        .group-body { padding: 10px 15px 15px; border-top: 2px dashed var(--border); }
+        .artist-row { margin-bottom: 8px; }
+        .artist-label { color: var(--muted); font-size: 16px; }
+
+        .fix-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+            flex-wrap: wrap;
+        }
+        .fix-proposal { flex: 1; font-size: 18px; color: var(--ok); }
+        .fix-proposal span { color: var(--muted); }
+
+        .empty {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--muted);
+            border: 4px dashed var(--muted);
+            margin: 20px;
+        }
+        .empty h2 { font-size: 28px; color: var(--text); margin-bottom: 15px; }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--ok);
+            color: var(--bg);
+            padding: 10px 20px;
+            font-size: 20px;
+            display: none;
+            z-index: 999;
+            border: 2px solid var(--bg);
+        }
+
+        @media (max-width: 768px) {
+            .stats-bar { gap: 10px; }
+            .stat { min-width: 45%; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .btn { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">DUPARR <span>[ TAG FIXER ]</span></div>
+    <nav>
+        <a href="/">DASHBOARD</a>
+        <a href="/tags" class="active">TAGS</a>
+        <a href="/album-dupes">ALBUM DUPES</a>
+        <a href="/dupes">DUPES</a>
+        <a href="/undo">UNDO</a>
+        <a href="/help">HELP</a>
+    </nav>
+</header>
+
+<div class="stats-bar">
+    <div class="stat"><div class="stat-label">TOTAL</div><div class="stat-value" id="stat-total" style="color:var(--accent);">...</div></div>
+    <div class="stat"><div class="stat-label">COLLECTION</div><div class="stat-value" id="stat-collection" style="color:var(--warn);">...</div></div>
+    <div class="stat"><div class="stat-label">COMPILATION</div><div class="stat-value" id="stat-compilation" style="color:var(--muted);">...</div></div>
+    <div class="stat"><div class="stat-label">HIGH CONF.</div><div class="stat-value" id="stat-high" style="color:var(--ok);">...</div></div>
+    <div class="stat"><div class="stat-label">MED CONF.</div><div class="stat-value" id="stat-medium" style="color:var(--warn);">...</div></div>
+</div>
+
+<div class="toolbar">
+    <button class="btn btn-ok" id="btn-fix-high" onclick="fixAll('HIGH')" disabled>* FIX ALL HIGH</button>
+    <button class="btn" id="btn-fix-medium" onclick="fixAll('MEDIUM')" disabled
+            style="border-color:var(--warn);color:var(--warn);box-shadow:4px 4px 0px 0px var(--warn);">
+        * FIX ALL MEDIUM
+    </button>
+    <button class="btn" id="btn-rescan" onclick="runTagScan(this)">↻ RESCAN</button>
+    <a href="/ui/tag_scan_report.txt" download class="btn" style="text-decoration:none;">↓ DOWNLOAD REPORT</a>
+    <span style="color:var(--muted);font-size:16px;margin-left:auto;">SETS ALBUM ARTIST = VARIOUS ARTISTS</span>
+</div>
+
+<main id="main">
+    <div class="loading">
+        <h2>[ SCANNING LIBRARY... ]</h2>
+        <p style="color:var(--muted);font-size:16px;">Reading tags from disk — this may take a moment</p>
+    </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let allGroups = [];
+
+window.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/tags/results')
+        .then(r => r.json())
+        .then(result => {
+            if (!result.scanned || result.pending) {
+                document.getElementById('main').innerHTML = `
+                    <div class="empty">
+                        <h2>[ NO SCAN RESULTS YET ]</h2>
+                        <p>USE <strong>~ FIX TAGS</strong> ON THE DASHBOARD TO SCAN YOUR LIBRARY</p>
+                    </div>`;
+                return;
+            }
+            allGroups = result.groups || [];
+            renderGroups(allGroups);
+            updateStats();
+            document.getElementById('btn-fix-high').disabled   = false;
+            document.getElementById('btn-fix-medium').disabled = false;
+        })
+        .catch(() => {
+            document.getElementById('main').innerHTML = `
+                <div class="empty">
+                    <h2>[ NO SCAN RESULTS YET ]</h2>
+                    <p>USE <strong>~ FIX TAGS</strong> ON THE DASHBOARD TO SCAN YOUR LIBRARY</p>
+                </div>`;
+        });
+});
+
+function updateStats() {
+    document.getElementById('stat-total').textContent      = allGroups.length;
+    document.getElementById('stat-collection').textContent = allGroups.filter(g => g.type === 'COLLECTION').length;
+    document.getElementById('stat-compilation').textContent= allGroups.filter(g => g.type === 'COMPILATION').length;
+    document.getElementById('stat-high').textContent       = allGroups.filter(g => g.confidence === 'HIGH').length;
+    document.getElementById('stat-medium').textContent     = allGroups.filter(g => g.confidence === 'MEDIUM').length;
+}
+
+function renderGroups(groups) {
+    const main = document.getElementById('main');
+    if (!groups.length) {
+        main.innerHTML = `
+            <div class="empty">
+                <h2>[ NO TAG ISSUES FOUND ]</h2>
+                <p>ALL TAGS LOOK CORRECT — LIBRARY IS CLEAN.</p>
+                <p style="margin-top:15px;color:var(--muted);font-size:16px;">RUN A FRESH SCAN IF YOU HAVE ADDED NEW FILES.</p>
+            </div>`;
+        return;
+    }
+
+    main.innerHTML = groups.map((g, i) => {
+        const isCollection = g.type === 'COLLECTION';
+        const typeBadge = isCollection
+            ? `<span class="badge" style="border-color:var(--warn);color:var(--warn);">COLLECTION</span>`
+            : `<span class="badge" style="border-color:var(--muted);color:var(--muted);">COMPILATION</span>`;
+
+        const currentAA = g.album_artists && g.album_artists.length
+            ? `<div class="artist-list">${esc(g.album_artists.join(', '))}</div>`
+            : `<div class="artist-list" style="color:var(--danger);">[ NOT SET ]</div>`;
+
+        let fixDesc = '';
+        if (isCollection) {
+            fixDesc = `
+                <div class="artist-row" style="margin-top:6px;">
+                    <div class="artist-label">OLD ALBUM TAG:</div>
+                    <div class="artist-list" style="color:var(--danger);">${esc(g.album)}</div>
+                </div>
+                <div class="artist-row" style="margin-top:6px;">
+                    <div class="artist-label">WILL SET:</div>
+                    <div class="artist-list">
+                        ARTIST = <span style="color:var(--accent);">${esc(g.new_artist || '[unchanged]')}</span>
+                        &nbsp;|&nbsp;
+                        ALBUM = <span style="color:var(--accent);">${esc(g.new_album)}</span>
+                    </div>
+                </div>`;
+        } else {
+            fixDesc = `
+                <div class="artist-row">
+                    <div class="artist-label">TRACK ARTISTS FOUND:</div>
+                    <div class="artist-list">${esc((g.artists || []).join(', '))}</div>
+                </div>
+                <div class="artist-row" style="margin-top:6px;">
+                    <div class="artist-label">CURRENT ALBUM ARTIST:</div>
+                    ${currentAA}
+                </div>
+                <div class="artist-row" style="margin-top:6px;">
+                    <div class="artist-label">WILL SET:</div>
+                    <div class="artist-list">ALBUM ARTIST = <span style="color:var(--accent);">${esc(g.correct_aa || 'Various Artists')}</span></div>
+                </div>`;
+        }
+
+        return `
+        <div class="group-card" data-confidence="${esc(g.confidence)}"
+             data-folder="${esc(g.folder)}"
+             data-type="${esc(g.type || 'COMPILATION')}"
+             data-tracks='${JSON.stringify(g.tracks).replace(/'/g, "&apos;")}'
+             data-correct-aa="${esc(g.correct_aa || 'Various Artists')}"
+             data-new-artist="${esc(g.new_artist || '')}"
+             data-new-album="${esc(g.new_album || '')}"
+             id="card-${i}">
+            <div class="group-header">
+                <div class="group-album">${esc(isCollection ? (g.new_artist ? g.new_artist + ' — ' + g.new_album : g.new_album) : g.album)}</div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    ${typeBadge}
+                    <span class="badge badge-${g.confidence.toLowerCase()}">${esc(g.confidence)}</span>
+                    <span style="color:var(--muted);font-size:16px;">${g.track_count} TRACKS</span>
+                </div>
+                <div class="group-folder folder-path">${esc(g.folder)}</div>
+            </div>
+            <div class="group-body">
+                ${fixDesc}
+                <div class="fix-row">
+                    <div id="status-${i}" style="font-size:16px;padding:4px 10px;display:none;"></div>
+                    <button class="btn btn-ok" id="btn-${i}" onclick="fixFolder(${i})">✓ FIX</button>
+                    <button class="btn" id="undo-${i}" onclick="undoFolder(${i})"
+                            style="display:none;border-color:var(--warn);color:var(--warn);box-shadow:4px 4px 0 var(--warn);">
+                        ↩ UNDO
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function fixFolder(idx) {
+    const card       = document.getElementById('card-' + idx);
+    const folder     = card.dataset.folder;
+    const tracks     = JSON.parse(card.dataset.tracks.replace(/&apos;/g, "'"));
+    const fix_type   = card.dataset.type;
+    const correct_aa = card.dataset.correctAa;
+    const new_artist = card.dataset.newArtist;
+    const new_album  = card.dataset.newAlbum;
+    const btn        = document.getElementById('btn-' + idx);
+    const status     = document.getElementById('status-' + idx);
+    const undoBtn    = document.getElementById('undo-' + idx);
+
+    btn.disabled = true; btn.textContent = '...';
+    status.style.display = 'inline-block';
+    status.style.color = 'var(--muted)';
+    status.textContent = 'FIXING...';
+
+    fetch('/api/fix_folder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ folder, tracks, fix_type, correct_aa, new_artist, new_album })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'ERROR: ' + data.error;
+            btn.disabled = false; btn.textContent = '✓ FIX';
+            return;
+        }
+        if (data.fixed === 0 && data.failed > 0) {
+            status.style.color = 'var(--danger)';
+            status.textContent = `FAILED ${data.failed} FILES`;
+            btn.disabled = false; btn.textContent = '✓ FIX';
+            return;
+        }
+        status.style.color = 'var(--ok)';
+        status.textContent = `FIXED ${data.fixed} | SKIPPED ${data.skipped} | FAILED ${data.failed}`;
+        showToast(`FIXED: ${data.fixed} TRACKS`);
+        btn.style.display  = 'none';
+        undoBtn.style.display = 'inline-block';
+        card.style.transition = 'opacity 0.6s'; card.style.opacity = '0';
+        setTimeout(() => { card.remove(); allGroups = allGroups.filter(g => g.folder !== folder); updateStats(); }, 650);
+    })
+    .catch(() => {
+        status.style.color = 'var(--danger)';
+        status.textContent = 'REQUEST FAILED';
+        btn.disabled = false; btn.textContent = '✓ FIX';
+    });
+}
+
+function undoFolder(idx) {
+    const card    = document.getElementById('card-' + idx);
+    const folder  = card.dataset.folder;
+    const undoBtn = document.getElementById('undo-' + idx);
+    const status  = document.getElementById('status-' + idx);
+    const btn     = document.getElementById('btn-' + idx);
+
+    undoBtn.disabled = true; undoBtn.textContent = '...';
+
+    fetch('/api/undo_folder_tags', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'UNDO ERROR: ' + data.error;
+            undoBtn.disabled = false; undoBtn.textContent = '↩ UNDO';
+        } else {
+            status.style.color = 'var(--warn)';
+            status.textContent = `RESTORED ${data.restored} TRACKS`;
+            undoBtn.style.display = 'none';
+            btn.style.display = 'inline-block';
+            btn.disabled = false; btn.textContent = '✓ FIX';
+            card.style.opacity = '1';
+            showToast(`RESTORED: ${data.restored} TRACKS`);
+        }
+    });
+}
+
+function fixAll(confidence) {
+    const toFix = allGroups.filter(g => g.confidence === confidence);
+    if (!toFix.length) { showToast('NO ' + confidence + ' GROUPS FOUND', false); return; }
+    if (!confirm(`FIX ALL ${confidence} CONFIDENCE GROUPS?\n\n${toFix.length} FOLDERS WILL BE UPDATED\n\nALL CHANGES CAN BE UNDONE.`)) return;
+
+    let done = 0, failed = 0;
+    function next(idx) {
+        if (idx >= toFix.length) { showToast(`DONE — FIXED ${done} FOLDERS${failed ? ', ' + failed + ' FAILED' : ''}`); return; }
+        const g = toFix[idx];
+        fetch('/api/fix_folder', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ folder: g.folder, tracks: g.tracks, fix_type: g.type,
+                                   correct_aa: g.correct_aa, new_artist: g.new_artist || '',
+                                   new_album: g.new_album || '' })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.error && data.fixed > 0) {
+                done++;
+                const card = document.querySelector(`.group-card[data-folder="${CSS.escape(g.folder)}"]`);
+                if (card) { card.style.transition='opacity 0.4s'; card.style.opacity='0.15';
+                            setTimeout(()=>{card.remove();allGroups=allGroups.filter(x=>x.folder!==g.folder);updateStats();},420); }
+            } else { failed++; }
+            setTimeout(() => next(idx + 1), 400);
+        })
+        .catch(() => { failed++; setTimeout(() => next(idx + 1), 400); });
+    }
+    next(0);
+}
+
+function runTagScan(btn) {
+    if (!confirm('RUN A FRESH TAG SCAN?\nThis re-reads tags from all files.')) return;
+    btn.disabled = true; btn.textContent = '...';
+    fetch('/api/tags/scan', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('Error: ' + data.error); btn.disabled=false; btn.textContent='↻ RESCAN'; return; }
+            const poll = setInterval(() => {
+                fetch('/api/status').then(r=>r.json()).then(s => {
+                    if (!s.running && s.status==='done') { clearInterval(poll); window.location.reload(); }
+                    else if (!s.running && s.status==='error') { clearInterval(poll); alert('Scan failed.'); btn.disabled=false; btn.textContent='↻ RESCAN'; }
+                });
+            }, 1500);
+        })
+        .catch(() => { alert('Request failed.'); btn.disabled=false; btn.textContent='↻ RESCAN'; });
+}
+
+function showToast(msg, ok=true) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = ok ? 'var(--ok)' : 'var(--danger)';
+    t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000);
+}
+
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -246,7 +246,10 @@
         <a href="/" class="active">DASHBOARD</a>
         <a href="/report">REPORT</a>
         <a href="/undo">UNDO</a>
+        <a href="/album-dupes">ALBUM DUPES</a>
+        <a href="/tags">TAGS</a>
         <a href="/logs">LOGS</a>
+        <a href="/help">HELP</a>
     </nav>
 </header>
 
@@ -258,12 +261,20 @@
     <div class="stat"><div class="stat-label">LOW CONF.</div><div class="stat-value danger">{{ stats.low }}</div></div>
 </div>
 
+{% if cap_meta.capped %}
+<div style="background:var(--warn);color:var(--bg);padding:10px 20px;font-size:18px;text-align:center;border-bottom:2px solid var(--bg);">
+    &#9888; SHOWING {{ cap_meta.cap }} OF {{ cap_meta.total_groups }} GROUPS — APPLY THIS BATCH THEN RESCAN TO SEE MORE
+</div>
+{% endif %}
+
 <div class="toolbar">
     <div class="toolbar-group" style="flex: 1;">
         <button class="btn btn-ok" id="btn-scan" onclick="startJob('full_scan', this)">* SCAN + FIND</button>
         <button class="btn btn-ok" id="btn-finddupes" onclick="startJob('find_dupes', this)">? DUPES ONLY</button>
         <button class="btn btn-primary" id="btn-apply" onclick="confirmApply()">> APPLY ALL</button>
         <button class="btn btn-warn" id="btn-covers" onclick="startJob('fetch_covers', this)"># COVERS</button>
+        <button class="btn" id="btn-albumdupes" onclick="startJob('album_dupes/scan', this)" style="border-color:var(--muted);color:var(--muted);box-shadow:4px 4px 0px 0px var(--muted);">@ ALBUM DUPES</button>
+        <button class="btn" id="btn-fixtags" onclick="startJob('tags/scan', this)" style="border-color:var(--muted);color:var(--muted);box-shadow:4px 4px 0px 0px var(--muted);">~ FIX TAGS</button>
         <a href="/download" style="text-decoration:none; width:100%;"><button class="btn" style="width:100%;">v EXPORT</button></a>
         <button class="btn" id="btn-erase" onclick="eraseDatabase()" style="border-color:var(--danger);color:var(--danger);box-shadow:4px 4px 0px 0px var(--danger);">X ERASE DB</button>
     </div>
@@ -510,7 +521,10 @@ function startJob(endpoint, btn) {
     document.getElementById('progress-wrap').classList.remove('visible');
     document.getElementById('job-hint').textContent = endpoint === 'full_scan'
         ? 'Large libraries may take 30-60 min'
-        : endpoint === 'apply_all' ? 'Moving files and rescanning...' : '';
+        : endpoint === 'apply_all' ? 'Moving files and rescanning...'
+        : endpoint === 'album_dupes/scan' ? 'Grouping albums and checking for duplicates...'
+        : endpoint === 'tags/scan' ? 'Reading tags from disk — may take a few minutes...'
+        : '';
 
     fetch(`/api/${endpoint}`, { method: 'POST' })
         .then(r => r.json())
@@ -576,8 +590,16 @@ function pollStatus() {
                 clearInterval(pollTimer);
                 setButtonsDisabled(false);
                 if (data.status === 'done') {
-                    document.getElementById('job-hint').textContent = 'Reloading...';
-                    setTimeout(() => window.location.reload(), 1500);
+                    if (data.progress && data.progress.phase === 'album_dupes') {
+                        document.getElementById('job-hint').textContent = 'Opening Album Duplicates...';
+                        setTimeout(() => window.location.href = '/album-dupes', 1000);
+                    } else if (data.progress && data.progress.phase === 'tags') {
+                        document.getElementById('job-hint').textContent = 'Opening Tag Fixer...';
+                        setTimeout(() => window.location.href = '/tags', 1000);
+                    } else {
+                        document.getElementById('job-hint').textContent = 'Reloading...';
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
                 } else {
                     document.getElementById('job-hint').textContent = 'Check log for details';
                 }

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — Album Duplicates</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:           #000000;
+            --surface:      #000000;
+            --border:       #FFFFFF;
+            --border-bright:#FFFF00;
+            --bright:       #FFFF00;
+            --text:         #FFFFFF;
+            --muted:        #00FFFF;
+            --cyan:         #00FFFF;
+            --accent:       #FFFF00;
+            --ok:           #00FF00;
+            --green:        #00FF00;
+            --danger:       #FF0000;
+            --red:          #FF0000;
+            --warn:         #FF00FF;
+            --magenta:      #FF00FF;
+            --dim:          #999999;
+            --vdim:         #777777;
+            --font-mono:    'VT323', monospace;
+            --font:         'VT323', monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 20px; line-height: 1.3; min-height: 100vh; text-transform: uppercase; }
+        .no-upper { text-transform: none; }
+
+        /* ── Header & Nav ── */
+        header {
+            background: var(--surface);
+            border-bottom: 4px solid var(--border-bright);
+            padding: 15px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo { font-size: 32px; font-weight: normal; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a {
+            font-size: 20px;
+            padding: 4px 10px;
+            border: 2px solid var(--border);
+            color: var(--text);
+            text-decoration: none;
+            background: var(--bg);
+        }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after  { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+        nav a:hover::before, nav a.active::before,
+        nav a:hover::after,  nav a.active::after  { color: var(--bg); }
+
+        /* ── Buttons ── */
+        .btn { font-family: var(--font); font-size: 18px; padding: 6px 14px; border: 2px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; text-transform: uppercase; box-shadow: 3px 3px 0 var(--border); text-decoration: none; display: inline-block; white-space: nowrap; }
+        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 1px 1px 0 var(--border); transform: translate(2px,2px); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; transform: none; pointer-events: none; }
+        .btn-green   { border-color: var(--green);   color: var(--green);   box-shadow: 3px 3px 0 var(--green); }
+        .btn-green:hover   { background: var(--green);   color: var(--bg); }
+        .btn-bright  { border-color: var(--bright);  color: var(--bright);  box-shadow: 3px 3px 0 var(--bright); }
+        .btn-bright:hover  { background: var(--bright);  color: var(--bg); }
+        .btn-cyan    { border-color: var(--cyan);    color: var(--cyan);    box-shadow: 3px 3px 0 var(--cyan); }
+        .btn-cyan:hover    { background: var(--cyan);    color: var(--bg); }
+        .btn-magenta { border-color: var(--magenta); color: var(--magenta); box-shadow: 3px 3px 0 var(--magenta); }
+        .btn-magenta:hover { background: var(--magenta); color: var(--bg); }
+        .btn-red     { border-color: var(--red);     color: var(--red);     box-shadow: 3px 3px 0 var(--red); }
+        .btn-red:hover     { background: var(--red);     color: var(--bg); }
+        .btn-skip    { border-color: var(--text); color: var(--text); box-shadow: 2px 2px 0 var(--text); font-size: 16px; }
+        .btn-skip:hover    { background: var(--cyan); color: var(--bg); transform: translate(2px,2px); }
+
+        /* ── Stats bar ── */
+        .stats-bar { display: flex; flex-wrap: wrap; border-bottom: 2px dashed #222; background: var(--surface); }
+        .stat { padding: 12px 16px; border-right: 1px solid #1a1a1a; min-width: 100px; flex: 1; }
+        .stat:last-child { border-right: none; }
+        .stat-label { color: var(--cyan); font-size: 14px; }
+        .stat-value { font-size: 26px; }
+        .c-bright { color: var(--bright); } .c-green { color: var(--green); }
+        .c-magenta { color: var(--magenta); } .c-red { color: var(--red); }
+
+        /* ── Pipeline bar ── */
+        #pipeline-bar { background: #050505; border-bottom: 2px solid #1a1a1a; padding: 10px 16px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .pipe-label { color: var(--cyan); font-size: 14px; margin-right: 6px; flex-shrink: 0; }
+        .pipe-step { font-size: 14px; padding: 2px 8px; border: 2px solid var(--dim); color: var(--dim); white-space: nowrap; flex-shrink: 0; }
+        .pipe-step.done   { border-color: var(--green);  color: var(--green); }
+        .pipe-step.active { border-color: var(--bright); color: var(--bright); background: #1a1a00; }
+        .pipe-arrow { color: #444; padding: 0 2px; font-size: 14px; flex-shrink: 0; }
+        .pipe-reset { margin-left: auto; font-family: var(--font); font-size: 14px; padding: 3px 10px; border: 2px solid var(--red); background: none; color: var(--red); cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+        .pipe-reset:hover { background: var(--red); color: var(--bg); }
+
+        /* ── Action bar ── */
+        #action-bar { padding: 14px 16px; border-bottom: 3px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .action-primary { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+        .step-hint { color: var(--cyan); font-size: 16px; }
+        .action-utils { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+        /* ── Job panel ── */
+        #job-panel { background: #050505; border-bottom: 3px solid var(--bright); padding: 16px; }
+        #job-panel.idle { border-color: #222; }
+        .job-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .job-status { color: var(--bright); font-size: 20px; }
+        .job-status.blinking { animation: blink 1s step-end infinite; }
+        .job-hint { color: var(--cyan); font-size: 16px; margin-left: auto; }
+        .progress-wrap { margin: 6px 0 10px; display: none; }
+        .progress-wrap.visible { display: block; }
+        .progress-track { background: #1a1a1a; height: 8px; border: 1px solid #333; overflow: hidden; }
+        .progress-fill  { height: 100%; background: var(--bright); width: 0%; transition: width 0.4s; }
+        .progress-label { color: var(--cyan); font-size: 15px; margin-top: 4px; text-transform: none; }
+        .job-log { background: var(--bg); border: 2px solid #222; padding: 12px; height: 200px; overflow-y: auto; font-size: 16px; color: var(--green); text-transform: none; }
+        .job-log .line { margin-bottom: 2px; }
+        .job-idle-msg { color: #333; font-size: 18px; text-align: center; padding: 40px 20px; border: 2px dashed #1a1a1a; }
+        .spinner::before { content: "[ WORKING ] "; color: var(--magenta); animation: blink 0.8s step-end infinite; }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ── Search + filter ── */
+        .toolbar { padding: 12px 16px; border-bottom: 3px solid var(--border); background: var(--surface); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .search-input { font-family: var(--font); font-size: 18px; background: var(--bg); border: 2px solid #444; color: var(--bright); padding: 6px 10px; outline: none; flex: 1; min-width: 160px; text-transform: uppercase; }
+        .search-input:focus { border-color: var(--bright); }
+        .search-input::placeholder { color: var(--vdim); }
+        .filter-group { display: flex; }
+        .filter-group .btn { box-shadow: none; border-right: none; font-size: 16px; padding: 4px 10px; }
+        .filter-group .btn:last-child { border-right: 2px solid var(--border); }
+        .filter-group .btn:hover { transform: none; box-shadow: none; }
+        .filter-group .btn.active { background: var(--text); color: var(--bg); }
+
+        /* ── Group cards ── */
+        main { padding: 16px; }
+        .group-card { border: 2px solid #2a2a2a; margin-bottom: 12px; background: var(--bg); }
+        .group-card:hover { border-color: #555; }
+        .group-card[data-confidence="HIGH"]   { border-left: 6px solid var(--green); }
+        .group-card[data-confidence="MEDIUM"] { border-left: 6px solid var(--magenta); }
+        .group-card[data-confidence="LOW"]    { border-left: 6px solid var(--red); }
+        .group-card.hidden { display: none; }
+        .group-header { display: flex; align-items: center; flex-wrap: wrap; padding: 10px 14px; cursor: pointer; gap: 10px; user-select: none; }
+        .group-header:hover { background: #0a0a0a; }
+        .group-num   { color: var(--magenta); font-size: 16px; min-width: 36px; flex-shrink: 0; }
+        .group-title { flex: 1; font-size: 20px; min-width: 120px; word-break: break-word; }
+        .group-artist { color: var(--cyan); font-size: 15px; text-transform: none; padding: 0 14px 8px; }
+        .group-meta  { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+        .chevron::before { content: "[+]"; color: var(--dim); }
+        .group-card.open .chevron::before { content: "[-]"; color: var(--text); }
+        .badge { font-size: 14px; padding: 1px 6px; border: 2px solid; }
+        .badge-high   { border-color: var(--green);   color: var(--green); }
+        .badge-medium { border-color: var(--magenta); color: var(--magenta); }
+        .badge-low    { border-color: var(--red);     color: var(--red); }
+        .badge-fp     { border-color: var(--cyan);    color: var(--cyan); }
+        .decision-bar { display: none; padding: 8px 14px; border-top: 1px dashed #222; border-bottom: 1px dashed #222; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
+        .group-card.open .decision-bar { display: flex; }
+        .pill { padding: 1px 6px; font-size: 14px; }
+        .pill-high   { background: var(--green);   color: var(--bg); }
+        .pill-medium { background: var(--magenta); color: var(--bg); }
+        .pill-low    { background: var(--red);     color: var(--bg); }
+        .pill-fp     { background: var(--cyan);    color: var(--bg); }
+        .decision-text { color: var(--dim); font-size: 15px; }
+        .decision-text strong { color: var(--text); }
+        .decision-safe   { margin-left: auto; color: var(--green);   font-size: 15px; animation: blink 2s step-end infinite; }
+        .decision-review { margin-left: auto; color: var(--magenta); font-size: 15px; }
+        .group-body { display: none; }
+        .group-card.open .group-body { display: block; }
+        .track-row { padding: 12px 14px; border-bottom: 1px solid #1a1a1a; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+        .track-row:last-child { border-bottom: none; }
+        .track-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+        .track-details { flex: 1; min-width: 180px; }
+        .track-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+        .track-title { font-size: 18px; margin-bottom: 4px; word-break: break-word; }
+        .track-title.keep    { color: var(--green); }
+        .track-title.dupe    { color: var(--text); }
+        .track-title.variant { color: var(--cyan); }
+        .track-label { display: inline-block; font-size: 13px; padding: 1px 5px; border: 2px solid; margin-right: 6px; }
+        .label-keep    { border-color: var(--green);   color: var(--green); }
+        .label-remove  { border-color: var(--red);     color: var(--red); }
+        .label-variant { border-color: var(--cyan);    color: var(--cyan); }
+        .track-path { color: var(--vdim); font-size: 14px; word-break: break-all; margin-top: 4px; text-transform: none; }
+        .track-note { color: var(--dim); font-size: 14px; margin-top: 4px; text-transform: none; }
+        .tag { font-size: 14px; color: var(--bg); background: var(--dim); padding: 1px 5px; }
+        .tag-bright { background: var(--text); color: var(--bg); }
+        .tag-green  { background: var(--green); color: var(--bg); }
+        .tag-red    { background: var(--red); color: var(--bg); }
+
+        /* ── Empty state ── */
+        .empty { text-align: center; padding: 60px 20px; border: 3px dashed var(--cyan); margin: 20px 0; }
+        .empty h2 { font-size: 26px; color: var(--cyan); margin-bottom: 12px; }
+        .empty p  { color: var(--text); font-size: 18px; margin-bottom: 20px; }
+        .empty a  { color: var(--cyan); }
+
+        /* ── Pagination ── */
+        .pagination { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 24px 16px; flex-wrap: wrap; }
+        .page-info { color: var(--bright); font-size: 16px; }
+
+        /* ── Danger zone ── */
+        .danger-zone { margin: 40px 0 20px; border: 2px solid #200000; }
+        .danger-header { padding: 10px 16px; background: #0a0000; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .danger-header:hover { background: #140000; }
+        .danger-title { color: var(--red); font-size: 18px; }
+        .danger-toggle { color: var(--vdim); font-size: 14px; margin-left: auto; border: 1px solid var(--vdim); padding: 1px 6px; }
+        .danger-body { display: none; padding: 16px; border-top: 1px solid #200000; }
+        .danger-note { color: var(--vdim); font-size: 15px; margin-bottom: 14px; }
+        .danger-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .danger-desc { color: var(--vdim); font-size: 15px; }
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            nav {
+                width: 100%;
+                gap: 6px;
+            }
+            nav a {
+                font-size: 18px;
+                padding: 4px 8px;
+            }
+        }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">DUPARR <span>[ ALBUM DUPLICATES ]</span></div>
+    <nav>
+        <a href="/">DASHBOARD</a>
+        <a href="/tags">TAGS</a>
+        <a href="/album-dupes" class="active">ALBUM DUPES</a>
+        <a href="/dupes">DUPES</a>
+        <a href="/undo">UNDO</a>
+        <a href="/help">HELP</a>
+    </nav>
+</header>
+
+<div class="stats-bar">
+    <div class="stat"><div class="stat-label">PAIRS FOUND</div><div class="stat-value" id="stat-pairs">—</div></div>
+    <div class="stat"><div class="stat-label">SPACE TO FREE</div><div class="stat-value" id="stat-size">—</div></div>
+</div>
+
+<div class="toolbar">
+    <button class="btn btn-danger" id="btn-move-all" onclick="moveAll()" disabled>▶ MOVE ALL</button>
+    <button class="btn" id="btn-rescan" onclick="runRescan(this)">↺ RESCAN</button>
+    <a href="/ui/album_dup_report.txt" download class="btn" style="text-decoration:none;">↓ DOWNLOAD REPORT</a>
+    <span style="color:var(--muted);font-size:14px;margin-left:auto;">MOVES ENTIRE WEAKER FOLDER • NEVER PARTIAL</span>
+</div>
+
+<main id="main">
+    <div style="text-align:center;padding:60px;color:var(--muted);">
+        <h2>[ LOADING... ]</h2>
+    </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let allPairs = [];
+
+window.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/album_dupes/results')
+        .then(r => r.json())
+        .then(result => {
+            if (!result.scanned) {
+                document.getElementById('main').innerHTML = `
+                    <div class="empty">
+                        <h2>[ NO SCAN RESULTS YET ]</h2>
+                        <p>USE <strong>@ ALBUM DUPES</strong> ON THE DASHBOARD TO SCAN YOUR LIBRARY</p>
+                        <p style="margin-top:20px;"><a href="/" style="color:var(--muted);">← BACK TO DASHBOARD</a></p>
+                    </div>`;
+                return;
+            }
+            allPairs = result.pairs || [];
+            renderPairs(allPairs);
+            updateStats();
+            document.getElementById('btn-move-all').disabled = allPairs.length === 0;
+        })
+        .catch(() => {
+            document.getElementById('main').innerHTML = `
+                <div class="empty">
+                    <h2>[ NO SCAN RESULTS YET ]</h2>
+                    <p>USE <strong>@ ALBUM DUPES</strong> ON THE DASHBOARD TO SCAN YOUR LIBRARY</p>
+                </div>`;
+        });
+});
+
+function fmtMB(mb) {
+    if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+    return mb.toFixed(0) + ' MB';
+}
+
+function updateStats() {
+    document.getElementById('stat-pairs').textContent = allPairs.length;
+    const totalMB = allPairs.reduce((s, p) => s + (p.move_size_mb || 0), 0);
+    document.getElementById('stat-size').textContent = fmtMB(totalMB);
+}
+
+function renderPairs(pairs) {
+    const main = document.getElementById('main');
+    if (!pairs.length) {
+        main.innerHTML = `
+            <div class="empty">
+                <h2>[ NO DUPLICATE ALBUMS FOUND ]</h2>
+                <p>YOUR LIBRARY HAS NO COMPLETE DUPLICATE ALBUM FOLDERS.</p>
+            </div>`;
+        return;
+    }
+
+    main.innerHTML = pairs.map((p, i) => `
+        <div class="pair-card" id="pair-${i}"
+             data-mover="${esc(p.mover_folder)}"
+             data-keeper="${esc(p.keeper_folder)}">
+            <div class="pair-header">
+                <div class="pair-album">${esc(p.keeper_album)}</div>
+                <div class="save-badge">SAVE ${fmtMB(p.move_size_mb)}</div>
+                <div class="pair-artist">${esc(p.keeper_artist)}</div>
+            </div>
+            <div class="pair-body">
+                <div class="folder-row keep">
+                    <div class="folder-label keep">✓ KEEP  (${p.keeper_track_count} tracks · score ${p.keeper_score})</div>
+                    <div class="folder-path path">${esc(p.keeper_folder)}</div>
+                </div>
+                <div class="folder-row move">
+                    <div class="folder-label move">→ MOVE  (${p.mover_track_count} tracks · score ${p.mover_score})</div>
+                    <div class="folder-path path">${esc(p.mover_folder)}</div>
+                </div>
+                <div class="match-bar">
+                    TRACK MATCH: ${p.matched_tracks} / ${p.mover_track_count} tracks confirmed
+                </div>
+                <div class="action-row">
+                    <div class="action-status" id="status-${i}"></div>
+                    <button class="btn btn-danger" id="btn-${i}" onclick="movePair(${i})">→ MOVE ALBUM</button>
+                    <button class="btn" id="undo-${i}" onclick="undoPair(${i})"
+                            style="display:none;border-color:var(--warn);color:var(--warn);box-shadow:4px 4px 0px 0px var(--warn);">
+                        ↩ UNDO
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function movePair(i) {
+    const card   = document.getElementById('pair-' + i);
+    const mover  = card.dataset.mover;
+    const keeper = card.dataset.keeper;
+    const btn    = document.getElementById('btn-' + i);
+    const status = document.getElementById('status-' + i);
+    const undoBtn = document.getElementById('undo-' + i);
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    status.style.color = 'var(--muted)';
+    status.textContent = 'MOVING...';
+
+    fetch('/api/album_dupes/move', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mover_folder: mover, keeper_folder: keeper})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'ERROR: ' + data.error;
+            btn.disabled = false;
+            btn.textContent = '→ MOVE ALBUM';
+        } else {
+            status.style.color = 'var(--ok)';
+            status.textContent = `MOVED ${data.moved} TRACKS • FREED ${fmtMB(data.size_freed_bytes / (1024*1024))}`;
+            showToast(`FREED ${fmtMB(data.size_freed_bytes / (1024*1024))}`);
+            // Fade and remove
+            card.style.transition = 'opacity 0.6s';
+            card.style.opacity = '0';
+            setTimeout(() => {
+                card.remove();
+                allPairs = allPairs.filter(p => p.mover_folder !== mover);
+                updateStats();
+                document.getElementById('btn-move-all').disabled = allPairs.length === 0;
+            }, 650);
+        }
+    })
+    .catch(() => {
+        status.style.color = 'var(--danger)';
+        status.textContent = 'REQUEST FAILED';
+        btn.disabled = false;
+        btn.textContent = '→ MOVE ALBUM';
+    });
+}
+
+function undoPair(i) {
+    const card   = document.getElementById('pair-' + i);
+    const mover  = card.dataset.mover;
+    const undoBtn = document.getElementById('undo-' + i);
+    const status  = document.getElementById('status-' + i);
+
+    undoBtn.disabled = true;
+    undoBtn.textContent = '...';
+
+    fetch('/api/album_dupes/undo', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mover_folder: mover})
+    })
+    .then(r => r.json())
+    .then(data => {
+        status.style.color = 'var(--warn)';
+        status.textContent = `RESTORED ${data.restored} TRACKS`;
+        undoBtn.style.display = 'none';
+        const btn = document.getElementById('btn-' + i);
+        btn.style.display = 'inline-block';
+        btn.disabled = false;
+        btn.textContent = '→ MOVE ALBUM';
+        showToast('RESTORED');
+    });
+}
+
+function moveAll() {
+    if (!confirm(`MOVE ALL ${allPairs.length} DUPLICATE ALBUM FOLDERS?\n\nFULL UNDO AVAILABLE INDIVIDUALLY.\n\nPROCEED?`)) return;
+    let i = 0;
+    const indices = allPairs.map((_, idx) => idx);
+    function next() {
+        if (i >= indices.length) { showToast('ALL ALBUMS MOVED'); return; }
+        movePair(indices[i++]);
+        setTimeout(next, 600);
+    }
+    next();
+}
+
+function runRescan(btn) {
+    if (!confirm('RESCAN LIBRARY?\n\nThis will re-index all files and update album duplicate detection.')) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch('/api/scan_only', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('Error: ' + data.error); btn.disabled = false; btn.textContent = '↺ RESCAN'; return; }
+            const poll = setInterval(() => {
+                fetch('/api/status').then(r => r.json()).then(s => {
+                    if (!s.running && s.status === 'done') {
+                        clearInterval(poll);
+                        window.location.reload();
+                    } else if (!s.running && s.status === 'error') {
+                        clearInterval(poll);
+                        alert('Rescan failed.');
+                        btn.disabled = false; btn.textContent = '↺ RESCAN';
+                    }
+                });
+            }, 1500);
+        })
+        .catch(() => { alert('Request failed.'); btn.disabled = false; btn.textContent = '↺ RESCAN'; });
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

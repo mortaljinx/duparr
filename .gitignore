@@ -1,14 +1,20 @@
-# ── Runtime data ──────────────────────────────────────────────────────────────
-# These are generated at runtime — never commit
+# ── Runtime data (generated at runtime — never commit) ────────────────────────
 ui/dupes.json
-ui/dupes_report.txt
 ui/report.json
-ui/history.json
+ui/album_dup_report.txt
+ui/tag_scan_report.txt
 data/
 
-# ── Python ─────────────────────────────────────────────────────────────────────
-ui/venv/
+# Temporary scan result files (written to /tmp inside container, but guard here too)
+/tmp/tag_scan_results.json
+/tmp/album_dup_results.json
+
+# Pipeline state (user-specific, generated at runtime)
+pipeline_state.json
+
+# ── Python ────────────────────────────────────────────────────────────────────
 venv/
+ui/venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -17,17 +23,19 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.eggs/
 
-# ── Logs ───────────────────────────────────────────────────────────────────────
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 
-# ── OS ─────────────────────────────────────────────────────────────────────────
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 .eaDir/
 Thumbs.db
 desktop.ini
+._*
 
-# ── Personal scan outputs (should never be committed) ─────────────────────────
+# ── Personal scan outputs ─────────────────────────────────────────────────────
 duplicates_list.txt
 dedupe_*.txt
 final_*.txt
@@ -37,3 +45,14 @@ music_index.txt
 *_output.txt
 duplicates_detailed.txt
 *.bak
+
+# ── Secrets / local config ────────────────────────────────────────────────────
+.env
+.env.local
+docker-compose.override.yml
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -13,6 +13,10 @@ import functools
 import hashlib
 from datetime import datetime
 
+sys.path.insert(0, "/app")
+from db import Database
+import config
+
 app = Flask(__name__, template_folder="/app/templates")
 
 DUPES_FILE   = "/ui/dupes.json"
@@ -69,6 +73,41 @@ _job = {
     "lock":     threading.Lock(),
     "progress": {"current": 0, "total": 0, "phase": ""},
 }
+
+# ── Pipeline state ─────────────────────────────────────────────────────────────
+# Tracks which steps the user has completed so the UI can enforce order.
+# Persisted to /data/pipeline_state.json so it survives container restarts.
+
+PIPELINE_FILE = "/data/pipeline_state.json"
+_PIPELINE_DEFAULT = {
+    "scanned":       False,   # At least one scan completed
+    "tags_done":     False,   # Tag scan run (fixed or skipped)
+    "album_dupes_done": False, # Album dedup run (moved or skipped)
+    "rescanned":     False,   # Rescan after album dedup
+    "dupes_found":   False,   # Track dedup run
+}
+
+def _load_pipeline() -> dict:
+    try:
+        with open(PIPELINE_FILE) as f:
+            state = json.load(f)
+            # Merge with defaults in case new keys added
+            return {**_PIPELINE_DEFAULT, **state}
+    except Exception:
+        return dict(_PIPELINE_DEFAULT)
+
+def _save_pipeline(state: dict):
+    try:
+        os.makedirs(os.path.dirname(PIPELINE_FILE), exist_ok=True)
+        with open(PIPELINE_FILE, "w") as f:
+            json.dump(state, f)
+    except Exception:
+        pass
+
+def _set_pipeline(key: str, value: bool = True):
+    state = _load_pipeline()
+    state[key] = value
+    _save_pipeline(state)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -306,6 +345,26 @@ def _background_job(steps, job_type="job"):
         history_entry["status"] = "done"
         history_entry["finished_at"] = _now()
 
+        # Update pipeline state based on job type
+        if job_type == "scan_only":
+            state = _load_pipeline()
+            if not state["scanned"]:
+                _set_pipeline("scanned", True)
+            elif state["album_dupes_done"]:
+                # Step 4 rescan after album dedup
+                _set_pipeline("rescanned", True)
+            else:
+                _set_pipeline("scanned", True)
+        elif job_type == "full_scan":
+            # Legacy full_scan (scan + find dupes) — mark both
+            _set_pipeline("scanned", True)
+            _set_pipeline("dupes_found", True)
+        elif job_type == "find_dupes":
+            _set_pipeline("dupes_found", True)
+        elif job_type == "apply_all":
+            _set_pipeline("dupes_found", True)
+            _set_pipeline("rescanned", True)
+
     except Exception as e:
         _job["status"] = "error"
         _job["log"].append(f"❌ {e}")
@@ -373,8 +432,8 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 
-@app.route("/")
-def index():
+def _build_report_context():
+    """Shared context for index and dupes pages."""
     data, meta = _load_dupes()
     total_size = sum(d.get("size") or 0 for g in data for d in g.get("dupes", []))
     stats = {
@@ -384,7 +443,12 @@ def index():
         "medium": sum(1 for g in data if any(d.get("confidence") == "MEDIUM" for d in g.get("dupes", []))),
         "low":    sum(1 for g in data if all(d.get("confidence") == "LOW"    for d in g.get("dupes", []))),
     }
-    return render_template("index.html", groups=data, stats=stats, cap_meta=meta)
+    return {"groups": data, "stats": stats, "cap_meta": meta}
+
+
+@app.route("/")
+def index():
+    return render_template("index.html", **_build_report_context())
 
 
 @app.route("/report")
@@ -505,6 +569,31 @@ def api_undo_all():
     return jsonify({"started": True})
 
 
+@app.route("/api/pipeline")
+def api_pipeline():
+    """Return current pipeline state for UI enforcement."""
+    return jsonify(_load_pipeline())
+
+
+@app.route("/api/pipeline/skip", methods=["POST"])
+def api_pipeline_skip():
+    """Mark a pipeline step as skipped (treated as done)."""
+    data = request.get_json()
+    step = data.get("step", "")
+    valid = set(_PIPELINE_DEFAULT.keys())
+    if step not in valid:
+        return jsonify({"error": f"Unknown step: {step}"}), 400
+    _set_pipeline(step, True)
+    return jsonify({"ok": True, "state": _load_pipeline()})
+
+
+@app.route("/api/pipeline/reset", methods=["POST"])
+def api_pipeline_reset():
+    """Reset pipeline state (e.g. after erasing DB)."""
+    _save_pipeline(dict(_PIPELINE_DEFAULT))
+    return jsonify({"ok": True})
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify({
@@ -557,6 +646,17 @@ def api_apply_all():
     return jsonify({"started": True})
 
 
+@app.route("/api/scan_only", methods=["POST"])
+def api_scan_only():
+    """Step 1 / Step 4 — scan library only, no duplicate detection."""
+    if _job["running"]:
+        return jsonify({"error": "Job already running"}), 400
+    threading.Thread(target=_background_job, args=([
+        ("Scanning library", ["scan"], _parse_scan_output),
+    ], "scan_only"), daemon=True).start()
+    return jsonify({"started": True})
+
+
 @app.route("/api/full_scan", methods=["POST"])
 def api_full_scan():
     if _job["running"]:
@@ -584,6 +684,7 @@ def api_erase_database():
     if _job["running"]:
         return jsonify({"error": "A job is currently running — wait for it to finish"}), 400
     try:
+        _save_pipeline(dict(_PIPELINE_DEFAULT))  # Reset pipeline on DB erase
         db = Database(config.DB_PATH)
         with db._conn() as conn:
             conn.execute("DELETE FROM tracks")
@@ -595,6 +696,331 @@ def api_erase_database():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/album-dupes")
+def album_dupes_page():
+    """Album-level duplicate detection results page."""
+    return render_template("album_dupes.html")
+
+
+@app.route("/api/album_dupes/scan", methods=["POST"])
+def api_album_dupes_scan():
+    """Kick off a background album duplicate scan."""
+    if _job["running"]:
+        return jsonify({"error": "A job is currently running"}), 400
+
+    _job["running"]  = True
+    _job["status"]   = "Scanning for duplicate albums"
+    _job["log"]      = ["▶ Album duplicate scan started"]
+    _job["progress"] = {"current": 0, "total": 0, "phase": "album_dupes"}
+
+    def _run():
+        try:
+            from albumdeduper import AlbumDeduper
+            db      = Database(config.DB_PATH)
+            scanner = AlbumDeduper(db, log_fn=lambda msg: _job["log"].append(msg))
+            pairs   = scanner.find_duplicate_albums()
+
+            import json as _json
+            with open("/tmp/album_dup_results.json", "w") as f:
+                _json.dump(pairs, f)
+
+            # Write report to /ui
+            report = ["DUPARR ALBUM DUPLICATE REPORT", "=" * 60, ""]
+            total_mb = sum(p.get("move_size_mb", 0) for p in pairs)
+            report.append(f"Duplicate album pairs found: {len(pairs)}")
+            report.append(f"Total space to free: {total_mb:.0f} MB ({total_mb/1024:.1f} GB)")
+            report.append("")
+            report.append("=" * 60)
+            for p in pairs:
+                report.append("")
+                report.append(f"{p['keeper_album']} — {p['keeper_artist']}")
+                report.append(f"  KEEP ({p['keeper_track_count']} tracks, score {p['keeper_score']}): {p['keeper_folder']}")
+                report.append(f"  MOVE ({p['mover_track_count']} tracks, score {p['mover_score']}): {p['mover_folder']}")
+                report.append(f"  Match: {p['matched_tracks']}/{p['mover_track_count']} tracks  •  Save: {p['move_size_mb']:.0f} MB")
+            with open("/ui/album_dup_report.txt", "w") as f:
+                f.write("\n".join(report))
+
+            _job["status"] = "done"
+            _job["log"].append(f"✅ Done — {len(pairs)} duplicate album pairs found")
+            _job["log"].append("📄 Report saved — download from Album Dupes page")
+            _set_pipeline("album_dupes_done", True)
+        except Exception as e:
+            import traceback
+            _job["status"] = "error"
+            _job["log"].append(f"❌ {e}")
+            _job["log"].append(traceback.format_exc())
+        finally:
+            _job["running"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/ui/tag_scan_report.txt")
+def tag_scan_report():
+    """Generate report fresh from current scan results — never serves stale cache."""
+    try:
+        import json as _json
+        with open("/tmp/tag_scan_results.json") as f:
+            groups = _json.load(f)
+    except FileNotFoundError:
+        return "No scan results yet — run a tag scan first.", 404
+    except Exception as e:
+        return f"Error reading results: {e}", 500
+
+    high   = [g for g in groups if g["confidence"] == "HIGH"]
+    med    = [g for g in groups if g["confidence"] == "MEDIUM"]
+    low    = [g for g in groups if g["confidence"] == "LOW"]
+
+    lines = [
+        "DUPARR TAG SCAN REPORT",
+        "=" * 60,
+        "",
+        f"Total fragmented compilations: {len(groups)}",
+        f"  HIGH:   {len(high)}",
+        f"  MEDIUM: {len(med)}",
+        f"  LOW:    {len(low)}",
+        "",
+        "=" * 60,
+        "FULL LIST",
+        "=" * 60,
+    ]
+    for g in groups:
+        lines.append("")
+        lines.append(f"[{g['confidence']}] {g['album']}  ({g['track_count']} tracks)")
+        lines.append(f"  Folder: {g['folder']}")
+        lines.append(f"  Track artists: {', '.join(g['artists'])}")
+        aa = ', '.join(g['album_artists']) if g.get('album_artists') else '[NOT SET]'
+        lines.append(f"  Current album artist: {aa}")
+
+    from io import BytesIO
+    report_bytes = "\n".join(lines).encode("utf-8")
+    return send_file(
+        BytesIO(report_bytes),
+        as_attachment=True,
+        download_name="tag_scan_report.txt",
+        mimetype="text/plain"
+    )
+
+
+@app.route("/ui/album_dup_report.txt")
+def album_dup_report():
+    path = "/ui/album_dup_report.txt"
+    if not os.path.exists(path):
+        return "No report yet — run an album duplicate scan first.", 404
+    return send_file(path, as_attachment=True, download_name="album_dup_report.txt", mimetype="text/plain")
+
+
+@app.route("/api/album_dupes/results")
+def api_album_dupes_results():
+    """Return results of the last album duplicate scan."""
+    try:
+        import json as _json
+        with open("/tmp/album_dup_results.json") as f:
+            pairs = _json.load(f)
+        return jsonify({"pairs": pairs, "scanned": True})
+    except FileNotFoundError:
+        return jsonify({"pairs": [], "scanned": False})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/album_dupes/move", methods=["POST"])
+def api_album_dupes_move():
+    """Move an entire duplicate album folder to /duplicates."""
+    data          = request.get_json()
+    mover_folder  = data.get("mover_folder", "").strip()
+    keeper_folder = data.get("keeper_folder", "").strip()
+
+    if not mover_folder or not keeper_folder:
+        return jsonify({"error": "mover_folder and keeper_folder required"}), 400
+
+    music_real = os.path.realpath(config.MUSIC_DIR)
+    if not os.path.realpath(mover_folder).startswith(music_real + os.sep):
+        return jsonify({"error": "Unsafe path blocked"}), 400
+
+    def _log(msg):
+        _job["log"].append(msg)
+
+    try:
+        from albumdeduper import AlbumDeduper
+        db      = Database(config.DB_PATH)
+        scanner = AlbumDeduper(db, log_fn=_log)
+        result  = scanner.move_album(mover_folder, keeper_folder)
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "detail": traceback.format_exc()}), 500
+
+
+@app.route("/api/album_dupes/undo", methods=["POST"])
+def api_album_dupes_undo():
+    """Restore a previously moved album folder."""
+    data         = request.get_json()
+    mover_folder = data.get("mover_folder", "").strip()
+
+    if not mover_folder:
+        return jsonify({"error": "mover_folder required"}), 400
+
+    try:
+        from albumdeduper import AlbumDeduper
+        db      = Database(config.DB_PATH)
+        scanner = AlbumDeduper(db)
+        result  = scanner.undo_album_move(mover_folder)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/help")
+def help_page():
+    return render_template("help.html")
+
+
+@app.route("/dupes")
+def dupes_page():
+    """Track duplicate groups — the report page."""
+    return render_template("dupes.html", **_build_report_context())
+
+
+@app.route("/tags")
+def tags_page():
+    """Compilation tag fixer review page — results load async."""
+    return render_template("tags.html")
+
+
+@app.route("/api/tags/scan", methods=["POST"])
+def api_tags_scan():
+    """Kick off a background tag scan."""
+    if _job["running"]:
+        return jsonify({"error": "A job is currently running"}), 400
+
+    def _run():
+        try:
+            _job["running"]  = True
+            _job["status"]   = "Scanning for fragmented compilations"
+            _job["log"]      = ["▶ Tag scan started"]
+            _job["progress"] = {"current": 0, "total": 0, "phase": "tags"}
+
+            from tagger import Tagger
+            db     = Database(config.DB_PATH)
+            tagger = Tagger(db, log_fn=lambda msg: _job["log"].append(msg))
+            groups = tagger.find_all()
+
+            import json as _json
+            with open("/tmp/tag_scan_results.json", "w") as f:
+                _json.dump(groups, f)
+
+            collection = sum(1 for g in groups if g.get("type") == "COLLECTION")
+            compilation = sum(1 for g in groups if g.get("type") == "COMPILATION")
+            _job["status"] = "done"
+            _job["log"].append(f"✅ Done — {len(groups)} folders ({collection} collection, {compilation} compilation)")
+            _set_pipeline("tags_done", True)
+        except Exception as e:
+            import traceback
+            _job["status"] = "error"
+            _job["log"].append(f"❌ {e}")
+            _job["log"].append(traceback.format_exc())
+        finally:
+            _job["running"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"started": True})
+
+
+@app.route("/api/tags/status")
+def api_tags_status():
+    """How many tag fixes are in the DB."""
+    try:
+        db = Database(config.DB_PATH)
+        fixes = db.all_tag_fixes()
+        return jsonify({"fixes_applied": len(fixes)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tags/results")
+def api_tags_results():
+    """Return the results of the last tag scan."""
+    try:
+        import json as _json
+        with open("/tmp/tag_scan_results.json") as f:
+            groups = _json.load(f)
+        return jsonify({"groups": groups, "scanned": True})
+    except FileNotFoundError:
+        return jsonify({"groups": [], "pending": True, "scanned": False})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/fix_folder", methods=["POST"])
+def api_fix_folder():
+    """Fix tags for a specific folder (compilation or collection)."""
+    data   = request.get_json()
+    folder = data.get("folder", "").strip()
+    tracks = data.get("tracks", [])
+
+    if not folder or not tracks:
+        return jsonify({"error": "folder and tracks required"}), 400
+
+    # Path safety — all tracks must be within MUSIC_DIR
+    music_real = os.path.realpath(config.MUSIC_DIR)
+    for path in tracks:
+        real = os.path.realpath(path)
+        if not real.startswith(music_real + os.sep):
+            return jsonify({"error": f"Unsafe path blocked: {path}"}), 400
+
+    # Capture tagger output into job log
+    log_lines = []
+    def _log(msg):
+        log_lines.append(msg)
+        _job["log"].append(msg)
+
+    correct_aa = data.get("correct_aa", None)  # optional — auto-detected if not supplied
+
+    try:
+        from tagger import Tagger
+        db     = Database(config.DB_PATH)
+        tagger = Tagger(db, log_fn=_log)
+        fix_type   = data.get("fix_type", "COMPILATION")
+        new_artist = data.get("new_artist", "").strip()
+        new_album  = data.get("new_album", "").strip() or None
+        result = tagger.fix_folder(
+            folder, tracks,
+            fix_type=fix_type,
+            correct_aa=correct_aa,
+            new_artist=new_artist or None,
+            new_album=new_album,
+        )
+        result["log"] = log_lines
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        _log(f"❌ Exception: {e}")
+        return jsonify({"error": str(e), "detail": tb, "log": log_lines}), 500
+
+
+@app.route("/api/undo_folder_tags", methods=["POST"])
+def api_undo_folder_tags():
+    """Restore original Album Artist tags for a folder."""
+    data   = request.get_json()
+    folder = data.get("folder", "").strip()
+
+    if not folder:
+        return jsonify({"error": "folder required"}), 400
+
+    music_real = os.path.realpath(config.MUSIC_DIR)
+    if not os.path.realpath(folder).startswith(music_real + os.sep):
+        return jsonify({"error": "Unsafe path blocked"}), 400
+
+    from tagger import Tagger
+    db = Database(config.DB_PATH)
+    tagger = Tagger(db)
+    result = tagger.undo_folder(folder)
+    return jsonify(result)
 
 
 @app.route("/logs")

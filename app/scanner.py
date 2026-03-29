@@ -81,6 +81,7 @@ class Scanner:
 
                 info = self._extract(path)
                 if not info:
+                    unreadable += 1
                     continue
 
                 info["mtime"] = current_mtime
@@ -98,6 +99,8 @@ class Scanner:
                 if count % 100 == 0:
                     print(f"  Scanned {count} new/changed tracks... ({skipped} unchanged skipped)")
 
+        if unreadable:
+            print(f"  ⚠️  {unreadable} files skipped (unreadable/corrupt — not indexed)")
         print(f"  ✅ Scanned {count} new/changed tracks, {skipped} unchanged skipped")
 
         if config.USE_FINGERPRINT and fp_errors:
@@ -148,8 +151,33 @@ class Scanner:
                 "mtime":     0,  # set by caller
             }
         except Exception as e:
-            print(f"  ⚠️  Could not read {path}: {e}")
-            return None
+            # Mutagen easy=True fails on some MPs with non-standard headers.
+            # Try raw mode as fallback before giving up.
+            try:
+                audio = MutagenFile(path, easy=False)
+                if audio is None:
+                    return None
+                # Extract basic info without tag parsing
+                bitrate  = getattr(getattr(audio, "info", None), "bitrate",  0)
+                duration = getattr(getattr(audio, "info", None), "length",   0.0)
+                bitrate  = (bitrate or 0) // 1000
+                ext = os.path.splitext(path)[1].lower()
+                return {
+                    "path":      path,
+                    "artist":    "",
+                    "album":     "",
+                    "title":     os.path.splitext(os.path.basename(path))[0],
+                    "track_num": 0,
+                    "duration":  round(duration, 2),
+                    "bitrate":   bitrate,
+                    "format":    ext.lstrip("."),
+                    "filesize":  os.path.getsize(path),
+                    "has_cover": 0,
+                    "mtime":     0,
+                }
+            except Exception:
+                # Genuinely unreadable — skip silently
+                return None
 
     def _has_embedded_cover(self, path: str, ext: str, audio) -> bool:
         try:

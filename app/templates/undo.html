@@ -7,230 +7,190 @@
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* TELETEXT 8-BIT COLOR PALETTE */
-            --bg: #000000;
-            --surface: #000000;
-            --border: #FFFFFF;
-            --border-bright: #FFFF00; /* Yellow */
-            --text: #FFFFFF;
-            --muted: #00FFFF;         /* Cyan */
-            --accent: #FFFF00;        /* Yellow */
-            --danger: #FF0000;        /* Red */
-            --warn: #FF00FF;          /* Magenta */
-            --ok: #00FF00;            /* Green */
-            --info: #0000FF;          /* Blue */
-            --font-mono: 'VT323', monospace;
-            --font-display: 'VT323', monospace;
+            --bg:           #000000;
+            --surface:      #000000;
+            --border:       #FFFFFF;
+            --border-bright:#FFFF00;
+            --bright:       #FFFF00;
+            --text:         #FFFFFF;
+            --muted:        #00FFFF;
+            --cyan:         #00FFFF;
+            --accent:       #FFFF00;
+            --ok:           #00FF00;
+            --green:        #00FF00;
+            --danger:       #FF0000;
+            --red:          #FF0000;
+            --warn:         #FF00FF;
+            --magenta:      #FF00FF;
+            --dim:          #999999;
+            --vdim:         #777777;
+            --font-mono:    'VT323', monospace;
+            --font:         'VT323', monospace;
         }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body { 
-            background: var(--bg); 
-            color: var(--text); 
-            font-family: var(--font-mono); 
-            font-size: 20px; 
-            line-height: 1.2; 
-            min-height: 100vh; 
-            text-transform: uppercase; 
-        }
-
-        /* Prevent uppercase on actual file paths and logs to maintain accuracy */
-        .file-path, .file-original, .job-log { text-transform: none; }
-
-        header { 
-            background: var(--surface); 
-            border-bottom: 4px solid var(--border-bright); 
-            padding: 15px 20px; 
-            display: flex; 
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:20px;line-height:1.3;min-height:100vh;text-transform:uppercase;}
+        .no-upper{text-transform:none;}
+        header {
+            background: var(--surface);
+            border-bottom: 4px solid var(--border-bright);
+            padding: 15px 20px;
+            display: flex;
             flex-wrap: wrap;
             gap: 15px;
-            align-items: center; 
-            justify-content: space-between; 
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        
+
         .logo { font-size: 32px; font-weight: normal; color: var(--accent); letter-spacing: 2px; }
         .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
 
         nav { display: flex; gap: 10px; flex-wrap: wrap; }
-        nav a { 
-            font-size: 20px; 
-            padding: 4px 10px; 
-            border: 2px solid var(--border); 
-            color: var(--text); 
-            text-decoration: none; 
+        nav a {
+            font-size: 20px;
+            padding: 4px 10px;
+            border: 2px solid var(--border);
+            color: var(--text);
+            text-decoration: none;
             background: var(--bg);
         }
         nav a::before { content: "[ "; color: var(--muted); }
-        nav a::after { content: " ]"; color: var(--muted); }
+        nav a::after  { content: " ]"; color: var(--muted); }
         nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
-        nav a:hover::before, nav a.active::before, nav a:hover::after, nav a.active::after { color: var(--bg); }
+        nav a:hover::before, nav a.active::before,
+        nav a:hover::after,  nav a.active::after  { color: var(--bg); }
+        .btn{font-family:var(--font);font-size:18px;padding:6px 14px;border:2px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;text-transform:uppercase;box-shadow:3px 3px 0 var(--border);text-decoration:none;display:inline-block;white-space:nowrap;}
+        .btn:hover{background:var(--text);color:var(--bg);}
+        .btn:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none;pointer-events:none;}
+        .btn-green{border-color:var(--green);color:var(--green);box-shadow:3px 3px 0 var(--green);}
+        .btn-green:hover{background:var(--green);color:var(--bg);}
+        .btn-red{border-color:var(--red);color:var(--red);box-shadow:3px 3px 0 var(--red);}
+        .btn-red:hover{background:var(--red);color:var(--bg);}
+        .btn-cyan{border-color:var(--cyan);color:var(--cyan);box-shadow:3px 3px 0 var(--cyan);}
+        .btn-cyan:hover{background:var(--cyan);color:var(--bg);}
+        .btn-full{display:block;width:100%;text-align:center;}
 
-        .summary-bar { 
-            background: var(--surface); 
-            border-bottom: 2px dashed var(--border); 
-            padding: 15px 20px; 
-            display: flex; 
-            gap: 20px; 
-            flex-wrap: wrap; 
-            align-items: center;
-        }
-        .stat { display: flex; flex-direction: column; gap: 0px; min-width: 120px; }
-        .stat-label { color: var(--muted); font-size: 16px; letter-spacing: 1px; }
-        .stat-value { font-size: 28px; color: var(--accent); }
-        .summary-note { margin-left: auto; color: var(--ok); font-size: 16px; }
+        /* Summary */
+        .summary-bar{background:var(--surface);border-bottom:2px solid var(--border);padding:16px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;}
+        .stat-label{color:var(--cyan);font-size:14px;display:block;}
+        .stat-value{font-size:32px;color:var(--bright);}
+        .safety-note{color:var(--green);font-size:17px;border:2px solid var(--green);padding:4px 10px;margin-top:8px;display:inline-block;width:100%;}
 
-        .toolbar { padding: 15px 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; border-bottom: 4px solid var(--border); background: var(--surface); }
+        /* Toolbar */
+        .toolbar{padding:12px 16px;border-bottom:2px solid var(--border);background:var(--surface);display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+        .search-input{font-family:var(--font);font-size:18px;background:var(--bg);border:2px solid #444;color:var(--bright);padding:6px 10px;outline:none;flex:1;min-width:160px;}
+        .search-input:focus{border-color:var(--bright);}
+        .search-input::placeholder{color:var(--vdim);}
 
-        .btn { 
-            font-family: var(--font-mono); 
-            font-size: 18px; 
-            padding: 6px 12px; 
-            border: 2px solid var(--border); 
-            background: var(--bg); 
-            color: var(--text); 
-            cursor: pointer; 
-            text-transform: uppercase;
-            box-shadow: 4px 4px 0px 0px var(--border);
-        }
-        .btn:hover { background: var(--text); color: var(--bg); box-shadow: 2px 2px 0px 0px var(--border); transform: translate(2px, 2px); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: translate(4px, 4px); }
-        
-        .btn-danger { border-color: var(--danger); color: var(--danger); box-shadow: 4px 4px 0px 0px var(--danger); }
-        .btn-danger:hover { background: var(--danger); color: var(--bg); }
-        
-        .btn-ok { border-color: var(--ok); color: var(--ok); box-shadow: 4px 4px 0px 0px var(--ok); }
-        .btn-ok:hover { background: var(--ok); color: var(--bg); }
+        /* Job panel */
+        #job-panel{display:none;background:#050505;border-bottom:3px solid var(--bright);padding:16px;}
+        #job-panel.active{display:block;}
+        .job-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+        .spinner::before{content:"[ WORKING ] ";color:var(--magenta);}
+        .job-status-text{color:var(--bright);font-size:20px;}
+        .job-log{background:var(--bg);border:2px solid #222;padding:12px;height:160px;overflow-y:auto;font-size:16px;color:var(--green);text-transform:none;}
+        .job-log .line{margin-bottom:2px;}
 
-        .search-input { 
-            font-family: var(--font-mono); 
-            font-size: 18px; 
-            background: var(--bg); 
-            border: 2px solid var(--border); 
-            color: var(--accent); 
-            padding: 8px 12px; 
-            outline: none; 
-            width: 100%;
-            max-width: 350px;
-            text-transform: uppercase;
-        }
-        .search-input:focus { border-color: var(--accent); background: #111; }
-        .search-input::placeholder { color: var(--muted); }
+        /* File rows */
+        main{padding:16px;}
+        .file-row{border:2px solid var(--border);margin-bottom:12px;padding:14px;}
+        .file-row:hover{border-color:var(--cyan);}
+        .file-row.conflict{border-color:var(--red);background:#0a0000;}
+        .file-row.hidden{display:none;}
+        .file-name{font-size:19px;color:var(--bright);word-break:break-all;margin-bottom:6px;}
+        .file-src{font-size:14px;color:var(--cyan);word-break:break-all;margin-bottom:3px;text-transform:none;}
+        .file-dst{font-size:14px;color:var(--green);word-break:break-all;margin-bottom:6px;text-transform:none;}
+        .file-conflict{font-size:14px;color:var(--red);margin-bottom:6px;}
+        .file-size{font-size:18px;color:var(--bright);margin-bottom:10px;}
 
-        /* JOB PANEL */
-        #job-panel { display: none; background: #111; border-bottom: 4px solid var(--accent); padding: 15px 20px; }
-        #job-panel.active { display: block; }
-        .job-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .job-status-text { color: var(--accent); font-size: 20px; animation: blink 1s step-end infinite; }
-        .job-log { background: var(--bg); border: 2px dashed var(--muted); padding: 10px; height: 160px; overflow-y: auto; font-size: 16px; color: var(--ok); }
-        
-        @keyframes blink { 50% { opacity: 0; } }
-        
-        .spinner::before { content: "[ WAIT ] "; color: var(--warn); animation: blink 1s step-end infinite; }
+        /* Empty */
+        .empty{text-align:center;padding:60px 20px;border:3px dashed var(--cyan);margin:20px 0;}
+        .empty h2{font-size:26px;color:var(--cyan);margin-bottom:12px;}
+        .empty p{color:var(--text);font-size:18px;}
 
-        main { padding: 20px; }
+        /* Pagination */
+        .pagination{display:flex;gap:8px;align-items:center;justify-content:center;padding:24px 16px;flex-wrap:wrap;}
+        .page-info{color:var(--bright);font-size:16px;}
 
-        .file-row { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 15px; 
-            align-items: center; 
-            border: 2px solid var(--border); 
-            padding: 12px 15px; 
-            margin-bottom: 10px; 
-            background: var(--bg);
-        }
-        .file-row:hover { border-color: var(--border-bright); background: #111; }
-        .file-row.conflict { border-color: var(--warn); border-style: dashed; opacity: 0.8; }
-        
-        .file-info { flex: 1; min-width: 250px; }
-        .file-name { font-size: 22px; color: var(--text); margin-bottom: 5px; word-break: break-all; }
-        .file-path { color: var(--muted); font-size: 16px; word-break: break-all; }
-        .file-original { color: var(--ok); font-size: 16px; margin-top: 5px; }
-        .file-original.conflict { color: var(--warn); }
-        
-        .file-size { color: var(--accent); font-size: 20px; white-space: nowrap; min-width: 80px; text-align: right; }
-        .file-row.hidden { display: none; }
+        @keyframes blink{50%{opacity:0;}}
 
-        .empty { text-align: center; padding: 80px 20px; color: var(--muted); border: 4px dashed var(--muted); margin: 20px; }
-        .empty h2 { font-size: 28px; color: var(--text); margin-bottom: 15px; }
-
-        .pagination { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 30px 20px; flex-wrap: wrap; }
-        .page-info { color: var(--accent); font-size: 18px; margin-right: 10px; }
-
-        /* Mobile Breakpoints */
         @media (max-width: 768px) {
-            .summary-bar { gap: 10px; }
-            .stat { min-width: 45%; }
-            .summary-note { margin-left: 0; width: 100%; }
-            .toolbar { flex-direction: column; align-items: stretch; }
-            .search-input { max-width: none; }
-            .file-row { flex-direction: column; align-items: stretch; }
-            .file-size { text-align: left; margin-bottom: 10px; }
-            .btn { width: 100%; text-align: center; }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            nav {
+                width: 100%;
+                gap: 6px;
+            }
+            nav a {
+                font-size: 18px;
+                padding: 4px 8px;
+            }
         }
     </style>
 </head>
 <body>
-
 <header>
-    <div class="logo">DUPARR <span>[ DUPLICATE MANAGER ]</span></div>
+    <div class="logo">DUPARR <span>[ UNDO ]</span></div>
     <nav>
         <a href="/">DASHBOARD</a>
-        <a href="/report">REPORT</a>
+        <a href="/tags">TAGS</a>
+        <a href="/album-dupes">ALBUM DUPES</a>
+        <a href="/dupes">DUPES</a>
         <a href="/undo" class="active">UNDO</a>
-        <a href="/logs">LOGS</a>
+        <a href="/help">HELP</a>
     </nav>
 </header>
 
 <div class="summary-bar">
-    <div class="stat"><div class="stat-label">FILES IN /DUPLICATES</div><div class="stat-value">{{ total_count }}</div></div>
-    <div class="stat"><div class="stat-label">TOTAL SIZE</div><div class="stat-value">{{ total_size }}</div></div>
-    <div class="summary-note">[ FILES HERE ARE SAFE - NO DELETIONS ]</div>
+    <div style="width:100%;display:flex;gap:30px;flex-wrap:wrap;">
+        <div><span class="stat-label">FILES IN /DUPLICATES</span><div class="stat-value">{{ total_count }}</div></div>
+        <div><span class="stat-label">TOTAL SIZE</span><div class="stat-value">{{ total_size }}</div></div>
+    </div>
+    <div class="safety-note">[ FILES HERE ARE SAFE — NO DELETIONS ]</div>
 </div>
 
 <div class="toolbar">
     {% if files %}
-    <button class="btn btn-danger" onclick="confirmUndoAll()">&lt;&lt; RESTORE ALL FILES</button>
+    <button class="btn btn-red" style="width:100%;" onclick="confirmUndoAll()">&lt;&lt; RESTORE ALL FILES</button>
     {% endif %}
-    <input class="search-input" type="text" placeholder="SEARCH FILENAME / PATH..." oninput="filterSearch(this.value)">
-    <span style="color:var(--muted); font-size:16px; margin-left:auto; display:none;">CLICK A FILE TO RESTORE</span>
+    <input class="search-input no-upper" type="text" placeholder="Search filename / path..." oninput="filterSearch(this.value)">
 </div>
 
 <div id="job-panel">
     <div class="job-header">
         <span class="spinner"></span>
-        <span class="job-status-text" id="job-status-text">RESTORING...</span>
+        <span class="job-status-text" id="job-status-text">[ WORKING... ]</span>
     </div>
-    <div class="job-log" id="job-log"></div>
+    <div class="job-log no-upper" id="job-log"></div>
 </div>
 
 <main>
 {% if files %}
 {% for f in files %}
 <div class="file-row {% if f.exists %}conflict{% endif %}" data-path="{{ f.dup_path }}" id="row-{{ loop.index }}">
-    <div class="file-info">
-        <div class="file-name">{{ f.name }}</div>
-        <div class="file-path">SRC: {{ f.rel }}</div>
-        {% if f.exists %}
-        <div class="file-original conflict">[ !! ] CONFLICT: FILE ALREADY EXISTS AT DESTINATION</div>
-        {% elif f.original %}
-        <div class="file-original">DST: {{ f.original }}</div>
-        {% endif %}
-    </div>
+    <div class="file-name no-upper">{{ f.name }}</div>
+    <div class="file-src">SRC: {{ f.rel }}</div>
+    {% if f.exists %}
+    <div class="file-conflict">⚠ CONFLICT: FILE ALREADY EXISTS AT DESTINATION</div>
+    {% elif f.original %}
+    <div class="file-dst">→ {{ f.original }}</div>
+    {% endif %}
     <div class="file-size">{{ "%.1f"|format(f.size/1024/1024) }} MB</div>
-    <div>
-        {% if not f.exists %}
-        <button class="btn btn-ok" onclick="restoreFile('{{ f.dup_path }}', 'row-{{ loop.index }}')">&lt;&lt; RESTORE</button>
-        {% else %}
-        <button class="btn" disabled>[ LOCKED ]</button>
-        {% endif %}
-    </div>
+    {% if not f.exists %}
+    <button class="btn btn-green btn-full" onclick="restoreFile('{{ f.dup_path }}', 'row-{{ loop.index }}')">&lt;&lt; RESTORE</button>
+    {% else %}
+    <button class="btn btn-red btn-full" disabled>[ LOCKED — CONFLICT ]</button>
+    {% endif %}
 </div>
 {% endfor %}
 {% else %}
 <div class="empty">
-    <h2>NO FILES IN /DUPLICATES</h2>
+    <h2>[ NO FILES IN /DUPLICATES ]</h2>
     <p>FILES YOU MOVE WILL APPEAR HERE FOR RECOVERY.</p>
 </div>
 {% endif %}
@@ -239,90 +199,73 @@
 <div class="pagination" id="pagination"></div>
 
 <script>
-let currentSearch = '';
-let currentPage = 1;
-const PAGE_SIZE = 100;
-let pollTimer = null;
+let currentSearch='',currentPage=1;
+const PAGE_SIZE=100;
+let pollTimer=null;
 
-function filterSearch(val) {
-    currentSearch = val.toLowerCase();
-    currentPage = 1;
-    applyVisibility();
+function filterSearch(v){currentSearch=v.toLowerCase();currentPage=1;applyVisibility();}
+
+function applyVisibility(){
+    const rows=Array.from(document.querySelectorAll('.file-row'));
+    const matching=rows.filter(r=>!currentSearch||r.innerText.toLowerCase().includes(currentSearch));
+    const totalPages=Math.max(1,Math.ceil(matching.length/PAGE_SIZE));
+    if(currentPage>totalPages)currentPage=totalPages;
+    const ps=new Set(matching.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE));
+    rows.forEach(r=>r.classList.toggle('hidden',!ps.has(r)));
+    renderPagination(matching.length,totalPages);
 }
 
-function applyVisibility() {
-    const rows = Array.from(document.querySelectorAll('.file-row'));
-    const matching = rows.filter(r => !currentSearch || r.innerText.toLowerCase().includes(currentSearch));
-    const totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageSet = new Set(matching.slice(start, start + PAGE_SIZE));
-    rows.forEach(r => r.classList.toggle('hidden', !pageSet.has(r)));
-    renderPagination(matching.length, totalPages);
+function renderPagination(total,totalPages){
+    const el=document.getElementById('pagination');
+    if(totalPages<=1){el.innerHTML='';return;}
+    let h=`<span class="page-info">PAGE ${currentPage}/${totalPages} (${total} FILES)</span>`;
+    h+=`<button class="btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>&lt; PREV</button>`;
+    for(let p=Math.max(1,currentPage-2);p<=Math.min(totalPages,currentPage+2);p++)
+        h+=`<button class="btn${p===currentPage?' active':''}" onclick="goPage(${p})">${p}</button>`;
+    h+=`<button class="btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>NEXT &gt;</button>`;
+    el.innerHTML=h;
 }
 
-function renderPagination(total, totalPages) {
-    const el = document.getElementById('pagination');
-    if (totalPages <= 1) { el.innerHTML = ''; return; }
-    let html = `<span class="page-info">PAGE ${currentPage}/${totalPages} (${total} ITEMS)</span>`;
-    html += `<button class="btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>&lt;&lt; PREV</button>`;
-    const s = Math.max(1,currentPage-2), e = Math.min(totalPages,currentPage+2);
-    for (let p=s;p<=e;p++) html += `<button class="btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
-    html += `<button class="btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>NEXT &gt;&gt;</button>`;
-    el.innerHTML = html;
+function goPage(p){currentPage=p;applyVisibility();window.scrollTo(0,0);}
+
+function restoreFile(dupPath,rowId){
+    if(!confirm('RESTORE THIS FILE TO ITS ORIGINAL LOCATION?'))return;
+    fetch('/api/undo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dup_path:dupPath})})
+    .then(r=>r.json()).then(data=>{
+        if(data.ok){
+            const row=document.getElementById(rowId);
+            if(row){row.style.transition='opacity 0.4s';row.style.opacity='0.15';}
+            setTimeout(()=>{if(row)row.remove();applyVisibility();},500);
+        }else alert('ERROR: '+(data.error||'UNKNOWN'));
+    }).catch(()=>alert('Request failed.'));
 }
 
-function goPage(p) { currentPage = p; applyVisibility(); window.scrollTo(0,0); }
-
-function restoreFile(dupPath, rowId) {
-    if (!confirm('RESTORE THIS FILE TO ORIGINAL LOCATION? (Y/N)')) return;
-    fetch('/api/undo', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({dup_path: dupPath})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-            const row = document.getElementById(rowId);
-            if (row) row.style.opacity = '0.3';
-            setTimeout(() => { if (row) row.remove(); applyVisibility(); }, 600);
-        } else {
-            alert('ERROR: ' + (data.error || 'UNKNOWN ERROR'));
-        }
-    });
-}
-
-function confirmUndoAll() {
-    if (!confirm('RESTORE ALL FILES TO ORIGINAL LOCATIONS?\n\n[ NOTE: EXISTING FILES WILL BE SKIPPED ]\n\nPROCEED? (Y/N)')) return;
-    document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+function confirmUndoAll(){
+    if(!confirm('RESTORE ALL FILES TO ORIGINAL LOCATIONS?\n\nCONFLICTS WILL BE SKIPPED.\n\nPROCEED?'))return;
+    document.querySelectorAll('.btn').forEach(b=>b.disabled=true);
     document.getElementById('job-panel').classList.add('active');
-    document.getElementById('job-log').innerHTML = '';
-    fetch('/api/undo_all', {method:'POST'})
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { alert('ERROR: ' + data.error); return; }
-            pollTimer = setInterval(pollStatus, 1500);
-        });
+    document.getElementById('job-log').innerHTML='';
+    fetch('/api/undo_all',{method:'POST'}).then(r=>r.json()).then(data=>{
+        if(data.error){alert('ERROR: '+data.error);return;}
+        pollTimer=setInterval(pollStatus,1500);
+    }).catch(()=>alert('Request failed.'));
 }
 
-function pollStatus() {
-    fetch('/api/status').then(r => r.json()).then(data => {
-        const logEl = document.getElementById('job-log');
-        logEl.innerHTML = data.log.map(l => `<div class="line">${esc(l)}</div>`).join('');
-        logEl.scrollTop = logEl.scrollHeight;
-        document.getElementById('job-status-text').textContent =
-            data.status === 'done' ? '[ OK ] COMPLETE' :
-            data.status === 'error' ? '[ !! ] ERROR' : 'RESTORING...';
-        if (!data.running && (data.status === 'done' || data.status === 'error')) {
+function pollStatus(){
+    fetch('/api/status').then(r=>r.json()).then(data=>{
+        const el=document.getElementById('job-log');
+        el.innerHTML=(data.log||[]).map(l=>`<div class="line">${esc(l)}</div>`).join('');
+        el.scrollTop=el.scrollHeight;
+        document.getElementById('job-status-text').textContent=
+            data.status==='done'?'[ COMPLETE ]':data.status==='error'?'[ ERROR ]':'RESTORING...';
+        if(!data.running&&(data.status==='done'||data.status==='error')){
             clearInterval(pollTimer);
-            if (data.status === 'done') setTimeout(() => window.location.reload(), 1500);
+            if(data.status==='done')setTimeout(()=>window.location.reload(),1500);
         }
     });
 }
 
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 applyVisibility();
 </script>
 </body>

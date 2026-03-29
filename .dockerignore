@@ -1,11 +1,39 @@
 # Don't copy these into the Docker build context
-ui/venv/
+
+# Runtime data
 ui/dupes.json
+ui/report.json
+ui/album_dup_report.txt
 data/
+
+# Python
+venv/
+ui/venv/
 __pycache__/
 *.pyc
+*.pyo
 *.log
+
+# Git
 .git/
 .gitignore
-*.txt
+
+# Docs (not needed in image)
 README.md
+CHANGELOG.md
+LICENSE
+
+# Secrets / local config
+.env
+.env.local
+docker-compose.override.yml
+
+# OS
+.DS_Store
+.eaDir/
+Thumbs.db
+._*
+
+# IDE
+.vscode/
+.idea/

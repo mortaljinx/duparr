@@ -58,6 +58,28 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_fingerprint ON tracks(fingerprint);
                 CREATE INDEX IF NOT EXISTS idx_artist_title ON tracks(artist, title);
                 CREATE INDEX IF NOT EXISTS idx_path ON tracks(path);
+
+                CREATE TABLE IF NOT EXISTS tag_fixes (
+                    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path                 TEXT UNIQUE NOT NULL,
+                    original_album_artist TEXT,
+                    fixed_at             TEXT DEFAULT (datetime('now')),
+                    restored             INTEGER DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_tag_fixes_path ON tag_fixes(path);
+
+                CREATE TABLE IF NOT EXISTS album_moves (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_path  TEXT NOT NULL,
+                    dest_path    TEXT NOT NULL,
+                    source_folder TEXT NOT NULL,
+                    keeper_folder TEXT NOT NULL,
+                    moved_at     TEXT DEFAULT (datetime('now')),
+                    restored     INTEGER DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_album_moves_folder ON album_moves(source_folder);
             """)
         # Add mtime column if upgrading from older schema
         try:
@@ -125,3 +147,77 @@ class Database:
                     "DELETE FROM tracks WHERE path=?", [(p,) for p in missing]
                 )
         return len(missing)
+
+    # ── Tag fix methods ───────────────────────────────────────────────────────
+
+    def log_tag_fix(self, path: str, original_album_artist: str):
+        """Record original Album Artist before overwriting."""
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO tag_fixes (path, original_album_artist, restored)
+                VALUES (?, ?, 0)
+                ON CONFLICT(path) DO UPDATE SET
+                    original_album_artist=excluded.original_album_artist,
+                    fixed_at=datetime('now'),
+                    restored=0
+            """, (path, original_album_artist))
+
+    def remove_tag_fix(self, path: str):
+        """Remove a tag fix log entry (used when write failed)."""
+        with self._conn() as conn:
+            conn.execute("DELETE FROM tag_fixes WHERE path=?", (path,))
+
+    def get_tag_fixes_for_folder(self, folder: str) -> List[sqlite3.Row]:
+        """Return all tag fix records for files in a given folder."""
+        with self._conn() as conn:
+            return conn.execute("""
+                SELECT * FROM tag_fixes
+                WHERE path LIKE ? AND restored=0
+            """, (folder + "/%",)).fetchall()
+
+    def restore_tag_fix(self, path: str):
+        """Mark a tag fix as restored."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE tag_fixes SET restored=1 WHERE path=?", (path,)
+            )
+
+    def all_tag_fixes(self) -> List[sqlite3.Row]:
+        """Return all active (non-restored) tag fixes grouped by folder."""
+        with self._conn() as conn:
+            return conn.execute("""
+                SELECT * FROM tag_fixes WHERE restored=0 ORDER BY path
+            """).fetchall()
+
+    # ── Album move methods ────────────────────────────────────────────────────
+
+    def log_album_move(self, source_path: str, dest_path: str, keeper_folder: str):
+        """Record a file moved as part of an album dedup operation."""
+        source_folder = os.path.dirname(source_path)
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO album_moves (source_path, dest_path, source_folder, keeper_folder, restored)
+                VALUES (?, ?, ?, ?, 0)
+            """, (source_path, dest_path, source_folder, keeper_folder))
+
+    def get_album_moves_for_folder(self, source_folder: str) -> List[sqlite3.Row]:
+        """Return all active move records for a given source folder."""
+        with self._conn() as conn:
+            return conn.execute("""
+                SELECT * FROM album_moves WHERE source_folder=? AND restored=0
+            """, (source_folder,)).fetchall()
+
+    def restore_album_move(self, move_id: int):
+        """Mark an album move as restored."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE album_moves SET restored=1 WHERE id=?", (move_id,)
+            )
+
+    def all_album_moves(self) -> List[sqlite3.Row]:
+        """Return all active (non-restored) album moves."""
+        with self._conn() as conn:
+            return conn.execute("""
+                SELECT * FROM album_moves WHERE restored=0
+                ORDER BY moved_at DESC
+            """).fetchall()

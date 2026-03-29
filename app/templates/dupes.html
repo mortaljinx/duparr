@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Duparr — Dashboard</title>
+    <title>Duparr — Duplicates</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -63,13 +63,6 @@
         nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
         nav a:hover::before, nav a.active::before,
         nav a:hover::after,  nav a.active::after  { color: var(--bg); }
-        nav a.help-q { border-color: var(--muted); color: var(--muted); }
-        nav a.help-q::before, nav a.help-q::after { content: ""; }
-        /* ? help link - no brackets, smaller */
-        nav a.help-btn::before { content: ""; }
-        nav a.help-btn::after  { content: ""; }
-        nav a.help-btn { border-color: var(--cyan); color: var(--cyan); padding: 3px 8px; font-size: 20px; }
-        nav a.help-btn:hover { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
 
         /* ── Buttons ── */
         .btn { font-family: var(--font); font-size: 18px; padding: 6px 14px; border: 2px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; text-transform: uppercase; box-shadow: 3px 3px 0 var(--border); text-decoration: none; display: inline-block; white-space: nowrap; }
@@ -86,14 +79,14 @@
         .btn-red     { border-color: var(--red);     color: var(--red);     box-shadow: 3px 3px 0 var(--red); }
         .btn-red:hover     { background: var(--red);     color: var(--bg); }
         .btn-skip    { border-color: var(--text); color: var(--text); box-shadow: 2px 2px 0 var(--text); font-size: 16px; }
-        .btn-skip:hover    { background: var(--text); color: var(--bg); transform: translate(2px,2px); }
+        .btn-skip:hover    { background: var(--cyan); color: var(--bg); transform: translate(2px,2px); }
 
         /* ── Stats bar ── */
         .stats-bar { display: flex; flex-wrap: wrap; border-bottom: 2px dashed #222; background: var(--surface); }
-        .stat { padding: 8px 12px; border-right: 1px solid #1a1a1a; min-width: 80px; flex: 1; }
+        .stat { padding: 12px 16px; border-right: 1px solid #1a1a1a; min-width: 100px; flex: 1; }
         .stat:last-child { border-right: none; }
-        .stat-label { color: var(--cyan); font-size: 13px; }
-        .stat-value { font-size: 24px; }
+        .stat-label { color: var(--cyan); font-size: 14px; }
+        .stat-value { font-size: 26px; }
         .c-bright { color: var(--bright); } .c-green { color: var(--green); }
         .c-magenta { color: var(--magenta); } .c-red { color: var(--red); }
 
@@ -114,9 +107,8 @@
         .action-utils { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
         /* ── Job panel ── */
-        #job-panel { background: var(--bg); border: 4px dashed var(--cyan); padding: 20px; margin: 20px; }
-        #job-panel.idle { border-color: var(--cyan); }
-        
+        #job-panel { background: #050505; border-bottom: 3px solid var(--bright); padding: 16px; }
+        #job-panel.idle { border-color: #222; }
         .job-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         .job-status { color: var(--bright); font-size: 20px; }
         .job-status.blinking { animation: blink 1s step-end infinite; }
@@ -128,7 +120,7 @@
         .progress-label { color: var(--cyan); font-size: 15px; margin-top: 4px; text-transform: none; }
         .job-log { background: var(--bg); border: 2px solid #222; padding: 12px; height: 200px; overflow-y: auto; font-size: 16px; color: var(--green); text-transform: none; }
         .job-log .line { margin-bottom: 2px; }
-        .job-idle-msg { color: var(--cyan); font-size: 20px; text-align: center; padding: 40px 20px; border: 4px dashed var(--cyan); }
+        .job-idle-msg { color: #333; font-size: 18px; text-align: center; padding: 40px 20px; border: 2px dashed #1a1a1a; }
         .spinner::before { content: "[ WORKING ] "; color: var(--magenta); animation: blink 0.8s step-end infinite; }
 
         @keyframes blink { 50% { opacity: 0; } }
@@ -238,19 +230,19 @@
 <body>
 
 <header>
-    <div class="logo">DUPARR <span>[ DUPLICATE MANAGER ]</span></div>
+    <div class="logo">DUPARR <span>[ DUPLICATES ]</span></div>
     <nav>
-        <a href="/" class="active">DASHBOARD</a>
+        <a href="/">DASHBOARD</a>
         <a href="/tags">TAGS</a>
         <a href="/album-dupes">ALBUM DUPES</a>
-        <a href="/dupes">DUPES</a>
+        <a href="/dupes" class="active">DUPES</a>
         <a href="/undo">UNDO</a>
         <a href="/help">HELP</a>
     </nav>
 </header>
 
 <div class="stats-bar">
-    <div class="stat"><div class="stat-label">GROUPS FOUND</div><div class="stat-value c-bright">{{ stats.total_groups }}</div></div>
+    <div class="stat"><div class="stat-label">GROUPS</div><div class="stat-value c-bright">{{ stats.total_groups }}</div></div>
     <div class="stat"><div class="stat-label">SPACE REC.</div><div class="stat-value c-bright">{{ stats.total_size }}</div></div>
     <div class="stat"><div class="stat-label">HIGH</div><div class="stat-value c-green">{{ stats.high }}</div></div>
     <div class="stat"><div class="stat-label">MEDIUM</div><div class="stat-value c-magenta">{{ stats.medium }}</div></div>
@@ -263,250 +255,161 @@
 </div>
 {% endif %}
 
-<!-- Pipeline -->
-<div id="pipeline-bar">
-    <span class="pipe-label">PIPELINE:</span>
-    <div class="pipe-step" id="pipe-scanned">1. SCAN</div>
-    <div class="pipe-arrow">→</div>
-    <div class="pipe-step" id="pipe-tags">2. FIX TAGS</div>
-    <div class="pipe-arrow">→</div>
-    <div class="pipe-step" id="pipe-album">3. ALBUM DUPES</div>
-    <div class="pipe-arrow">→</div>
-    <div class="pipe-step" id="pipe-rescan">4. RESCAN</div>
-    <div class="pipe-arrow">→</div>
-    <div class="pipe-step" id="pipe-dupes">5. FIND DUPES</div>
-    <div class="pipe-arrow">→</div>
-    <div class="pipe-step" id="pipe-apply">6. APPLY</div>
-    <button class="pipe-reset" onclick="resetPipeline()">↺ RESET</button>
-</div>
-
-<!-- Action bar -->
-<div id="action-bar">
-    <div class="action-primary">
-        <button class="btn btn-green"   id="btn-scan"       onclick="startJob('scan_only', this)">* SCAN LIBRARY</button>
-        <button class="btn btn-cyan"    id="btn-fixtags"    onclick="startJob('tags/scan', this)"          style="display:none;">~ FIX TAGS</button>
-        <button class="btn btn-cyan"    id="btn-albumdupes" onclick="startJob('album_dupes/scan', this)"   style="display:none;">@ ALBUM DUPES</button>
-        <button class="btn btn-green"   id="btn-rescan"     onclick="startJob('scan_only', this)"          style="display:none;">↺ RESCAN</button>
-        <button class="btn btn-green"   id="btn-finddupes"  onclick="startJob('find_dupes', this)"         style="display:none;">? FIND DUPES</button>
-        <button class="btn btn-bright"  id="btn-apply"      onclick="confirmApply()"                       style="display:none;">&gt; APPLY ALL</button>
-        <button class="btn btn-skip"    id="btn-skip"       onclick="skipCurrent()"                        style="display:none;">SKIP →</button>
-        <span class="step-hint" id="step-hint"></span>
+<div class="toolbar">
+    <input class="search-input no-upper" type="text" placeholder="Search title / path..." id="search" oninput="filterSearch(this.value)">
+    <div class="filter-group">
+        <button class="btn active" onclick="filterConf('all', this)">ALL</button>
+        <button class="btn" onclick="filterConf('HIGH', this)">HIGH</button>
+        <button class="btn" onclick="filterConf('MEDIUM', this)">MED</button>
+        <button class="btn" onclick="filterConf('LOW', this)">LOW</button>
     </div>
-    <div class="action-utils">
-        <button class="btn btn-magenta" id="btn-covers" onclick="startJob('fetch_covers', this)"># COVERS</button>
-        <a href="/download" style="text-decoration:none;"><button class="btn">v EXPORT</button></a>
-    </div>
-</div>
-
-<!-- Job panel - always visible -->
-<div id="job-panel" class="idle">
-    <div class="job-header">
-        <span id="job-spinner" style="display:none;" class="spinner"></span>
-        <span class="job-status" id="job-status">[ READY ]</span>
-        <span class="job-hint no-upper" id="job-hint">Select a step above to begin</span>
-    </div>
-    <div class="progress-wrap" id="progress-wrap">
-        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-        <div class="progress-label no-upper" id="progress-label"></div>
-    </div>
-    <div id="job-log-wrap">
-        <div class="job-idle-msg" id="job-idle-msg">
-            DUPARR IS READY — USE THE PIPELINE STEPS ABOVE TO BEGIN<br><br>
-            <span style="color:var(--vdim);font-size:16px;">JOB OUTPUT WILL APPEAR HERE</span>
-        </div>
-        <div class="job-log no-upper" id="job-log" style="display:none;"></div>
-    </div>
+    <button class="btn btn-bright" onclick="confirmApply()">&gt; APPLY ALL</button>
+    <a href="/download" style="text-decoration:none;"><button class="btn">v EXPORT</button></a>
 </div>
 
 <main>
-    <div class="danger-zone">
-        <div class="danger-header" onclick="toggleDanger()">
-            <span class="danger-title">⚠ DANGER ZONE</span>
-            <span class="danger-toggle" id="danger-chevron">[ EXPAND ]</span>
-        </div>
-        <div class="danger-body" id="danger-body">
-            <p class="danger-note">THESE ACTIONS CANNOT BE UNDONE. YOUR MUSIC FILES ARE NOT AFFECTED.</p>
-            <div class="danger-row">
-                <button class="btn btn-red" onclick="eraseDatabase()">X ERASE DATABASE</button>
-                <span class="danger-desc">WIPES TRACK INDEX AND PIPELINE STATE. REQUIRES FULL RESCAN.</span>
-            </div>
+{% if groups %}
+{% for g in groups %}
+{% set top_conf = g.dupes[0].confidence if g.dupes else 'LOW' %}
+{% set total_size = g.dupes | sum(attribute='size') %}
+{% set dupe_count = g.dupes | length %}
+{% set variant_count = g.variants | length %}
+<div class="group-card" data-confidence="{{ top_conf }}" data-size="{{ total_size }}">
+    <div class="group-header" onclick="toggleGroup(this.parentElement)">
+        <div class="group-num">#{{ loop.index }}</div>
+        <div class="group-title">{{ g.keeper.title or 'Unknown' }}</div>
+        <div class="group-meta">
+            {% if g.match_type == 'fingerprint' %}<span class="badge badge-fp">FP</span>{% endif %}
+            <span class="badge badge-{{ top_conf | lower }}">{{ top_conf }}</span>
+            <span style="color:var(--dim);font-size:15px;">
+                {{ dupe_count }} DUPE{{ 'S' if dupe_count != 1 else '' }}
+                {% if variant_count %} · {{ variant_count }} KEPT{% endif %}
+                {% if total_size %} · {{ "%.0f"|format(total_size/1024/1024) }}MB{% endif %}
+            </span>
+            <div class="chevron"></div>
         </div>
     </div>
+    {% if g.keeper.artist %}
+    <div class="group-artist">{{ g.keeper.artist }}</div>
+    {% endif %}
+
+    <div class="decision-bar">
+        <span class="pill pill-{{ top_conf | lower }}">{% if g.match_type == 'fingerprint' %}FINGERPRINT{% else %}METADATA{% endif %} MATCH</span>
+        <span class="decision-text">
+            KEEPING <strong>BEST QUALITY</strong> ·
+            {% if dupe_count == 1 %}1 DUPE{% else %}{{ dupe_count }} DUPES{% endif %} TO MOVE
+            {% if total_size %} · <strong>{{ "%.1f"|format(total_size/1024/1024) }} MB</strong>{% endif %}
+        </span>
+        {% if top_conf == 'HIGH' %}<span class="decision-safe">✓ SAFE</span>
+        {% elif top_conf == 'MEDIUM' %}<span class="decision-review">? REVIEW</span>{% endif %}
+    </div>
+
+    <div class="group-body">
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--green);">&gt;&gt;</div>
+            <div class="track-details">
+                <div class="track-title keep"><span class="track-label label-keep">KEEP</span>{{ g.keeper.title or 'Unknown' }}</div>
+                <div class="track-path">{{ g.keeper.path }}</div>
+            </div>
+            <div class="track-badges">
+                {% if g.keeper.format %}<span class="tag tag-bright">{{ g.keeper.format | upper }}</span>{% endif %}
+                {% if g.keeper.bitrate %}<span class="tag tag-bright">{{ g.keeper.bitrate }}k</span>{% endif %}
+                <span class="tag tag-green">{{ g.keeper.score }}</span>
+            </div>
+        </div>
+        {% for d in g.dupes %}
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--red);">XX</div>
+            <div class="track-details">
+                <div class="track-title dupe"><span class="track-label label-remove">MOVE</span>{{ d.title or 'Unknown' }}</div>
+                <div class="track-path">{{ d.path }}</div>
+                {% if d.reason %}<div class="track-note">{{ d.reason }}</div>{% endif %}
+            </div>
+            <div class="track-badges">
+                <span class="badge badge-{{ (d.confidence or 'low') | lower }}">{{ d.confidence or 'LOW' }}</span>
+                {% if d.format %}<span class="tag">{{ d.format | upper }}</span>{% endif %}
+                {% if d.bitrate %}<span class="tag">{{ d.bitrate }}k</span>{% endif %}
+                {% if d.size %}<span class="tag">{{ "%.0f"|format(d.size/1024/1024) }}MB</span>{% endif %}
+                <span class="tag tag-red">{{ d.score }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% for v in g.get('variants', []) %}
+        <div class="track-row">
+            <div class="track-icon" style="color:var(--cyan);">~~</div>
+            <div class="track-details">
+                <div class="track-title variant"><span class="track-label label-variant">VAR.</span>{{ v.title or 'Unknown' }}</div>
+                <div class="track-path">{{ v.path }}</div>
+                <div class="track-note">PRESERVED — REMIX / LIVE / ALT</div>
+            </div>
+            <div class="track-badges"><span class="tag">KEPT</span></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">
+    <h2>NO DUPLICATES FOUND</h2>
+    <p>Run <a href="/">? FIND DUPES</a> from the dashboard to scan for duplicates.</p>
+</div>
+{% endif %}
+
+<div class="pagination" id="pagination"></div>
 </main>
 
 <script>
-let pollTimer = null;
-let _currentSkipStep = null;
+let currentFilter = 'all', currentSearch = '', currentPage = 1;
+const PAGE_SIZE = 50;
 
-const STEPS = [
-    { key: 'scanned',          btn: 'btn-scan',       skippable: false, hint: 'STEP 1 — SCAN YOUR LIBRARY TO BUILD THE TRACK INDEX' },
-    { key: 'tags_done',        btn: 'btn-fixtags',    skippable: true,  skip: 'tags_done',        hint: 'STEP 2 — FIX COLLECTION + COMPILATION TAGS, OR SKIP' },
-    { key: 'album_dupes_done', btn: 'btn-albumdupes', skippable: true,  skip: 'album_dupes_done', hint: 'STEP 3 — FIND AND REMOVE DUPLICATE ALBUM FOLDERS, OR SKIP' },
-    { key: 'rescanned',        btn: 'btn-rescan',     skippable: false, hint: 'STEP 4 — RESCAN AFTER ALBUM CHANGES' },
-    { key: 'dupes_found',      btn: 'btn-finddupes',  skippable: false, hint: 'STEP 5 — FIND INDIVIDUAL DUPLICATE TRACKS' },
-    { key: null,               btn: 'btn-apply',      skippable: false, hint: 'STEP 6 — REVIEW DUPES PAGE THEN APPLY ALL' },
-];
+function toggleGroup(card) { card.classList.toggle('open'); }
 
-function loadPipeline() {
-    fetch('/api/pipeline').then(r => r.json()).then(applyPipeline).catch(() => {});
+function filterConf(level, btn) {
+    currentFilter = level; currentPage = 1;
+    document.querySelectorAll('.filter-group .btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); applyVisibility();
 }
+function filterSearch(val) { currentSearch = val.toLowerCase(); currentPage = 1; applyVisibility(); }
 
-function applyPipeline(s) {
-    const setStep = (id, done, active) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.classList.toggle('done',   !!done);
-        el.classList.toggle('active', !!active && !done);
-    };
-    const nextPipe =
-        !s.scanned           ? 'pipe-scanned'   :
-        !s.tags_done         ? 'pipe-tags'      :
-        !s.album_dupes_done  ? 'pipe-album'     :
-        !s.rescanned         ? 'pipe-rescan'    :
-        !s.dupes_found       ? 'pipe-dupes'     : 'pipe-apply';
-    setStep('pipe-scanned',   s.scanned,          nextPipe==='pipe-scanned');
-    setStep('pipe-tags',      s.tags_done,        nextPipe==='pipe-tags');
-    setStep('pipe-album',     s.album_dupes_done, nextPipe==='pipe-album');
-    setStep('pipe-rescan',    s.rescanned,        nextPipe==='pipe-rescan');
-    setStep('pipe-dupes',     s.dupes_found,      nextPipe==='pipe-dupes');
-    setStep('pipe-apply',     false,              nextPipe==='pipe-apply');
-
-    const idx = !s.scanned?0:!s.tags_done?1:!s.album_dupes_done?2:!s.rescanned?3:!s.dupes_found?4:5;
-    const step = STEPS[idx];
-    _currentSkipStep = step.skippable ? step.skip : null;
-
-    STEPS.forEach(st => { const b=document.getElementById(st.btn); if(b) b.style.display='none'; });
-    const ab = document.getElementById(step.btn);
-    if (ab) ab.style.display = '';
-    const sb = document.getElementById('btn-skip');
-    if (sb) sb.style.display = _currentSkipStep ? '' : 'none';
-    const hint = document.getElementById('step-hint');
-    if (hint) hint.textContent = step.hint || '';
-
-    // Show dupes link if dupes found
-    const sr = document.getElementById('scan-result');
-    const sm = document.getElementById('scan-msg');
-    if (s.dupes_found && sr && sm) {
-        sr.classList.add('visible');
-        sm.innerHTML = '{{ stats.total_groups }} DUPLICATE GROUPS FOUND — <a href="/dupes">VIEW DUPES →</a>';
-    }
-}
-
-function skipCurrent() {
-    if (!_currentSkipStep) return;
-    fetch('/api/pipeline/skip', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({step:_currentSkipStep}) })
-        .then(r=>r.json()).then(d=>{ if(d.state) applyPipeline(d.state); });
-}
-
-function resetPipeline() {
-    if (!confirm('RESET PIPELINE TRACKER?\n\nThis only resets the step indicator.\nNo files or data are changed.')) return;
-    fetch('/api/pipeline/reset', {method:'POST'})
-        .then(()=>applyPipeline({scanned:false,tags_done:false,album_dupes_done:false,rescanned:false,dupes_found:false}));
-}
-
-function setButtonsDisabled(d) {
-    ['btn-scan','btn-fixtags','btn-albumdupes','btn-rescan','btn-finddupes','btn-apply','btn-covers','btn-skip'].forEach(id=>{
-        const el=document.getElementById(id); if(el) el.disabled=d;
+function applyVisibility() {
+    const all = Array.from(document.querySelectorAll('.group-card'));
+    const matching = all.filter(card => {
+        const confOk   = currentFilter==='all' || card.dataset.confidence===currentFilter.toUpperCase();
+        const searchOk = !currentSearch || card.innerText.toLowerCase().includes(currentSearch);
+        return confOk && searchOk;
     });
+    const totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const visible = new Set(matching.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE));
+    all.forEach(c => c.classList.toggle('hidden', !visible.has(c)));
+    renderPagination(matching.length, totalPages);
 }
 
-const JOB_HINTS = {
-    'scan_only':        'Indexing library — may take 20–40 min on first run',
-    'tags/scan':        'Reading tags from every file...',
-    'album_dupes/scan': 'Grouping albums, checking for duplicates...',
-    'find_dupes':       'Analysing tracks for duplicates...',
-    'apply_all':        'Moving files and rescanning...',
-    'fetch_covers':     'Fetching missing artwork...',
-};
-
-function startJob(endpoint, btn) {
-    setButtonsDisabled(true);
-    const panel = document.getElementById('job-panel');
-    panel.classList.remove('idle');
-    document.getElementById('job-idle-msg').style.display = 'none';
-    document.getElementById('job-log').style.display = 'block';
-    document.getElementById('job-log').innerHTML = '';
-    document.getElementById('job-spinner').style.display = '';
-    document.getElementById('progress-wrap').classList.remove('visible');
-    document.getElementById('job-hint').textContent = JOB_HINTS[endpoint] || '';
-    document.getElementById('job-status').textContent = '[ WORKING... ]';
-    fetch(`/api/${endpoint}`, {method:'POST'})
-        .then(r=>r.json())
-        .then(data=>{
-            if (data.error) { alert('Error: '+data.error); setButtonsDisabled(false); panel.classList.remove('active'); return; }
-            pollTimer = setInterval(pollStatus, 1500);
-        })
-        .catch(()=>{ alert('Request failed.'); setButtonsDisabled(false); panel.classList.remove('active'); });
+function renderPagination(total, totalPages) {
+    const el = document.getElementById('pagination');
+    if (!el || totalPages <= 1) { if(el) el.innerHTML=''; return; }
+    const s=Math.max(1,currentPage-2), e=Math.min(totalPages,currentPage+2);
+    let html=`<span class="page-info">${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE,total)} of ${total}</span>`;
+    html+=`<button class="btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+    for(let p=s;p<=e;p++) html+=`<button class="btn${p===currentPage?' active':''}" onclick="goPage(${p})">${p}</button>`;
+    html+=`<button class="btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+    el.innerHTML=html;
 }
+function goPage(p) { currentPage=p; applyVisibility(); window.scrollTo(0,0); }
 
 function confirmApply() {
-    if (!confirm('MOVE ALL DUPLICATES TO /DUPLICATES?\n\nFILES ARE NOT DELETED — FULLY UNDOABLE.\nPROCEED?')) return;
-    startJob('apply_all', document.getElementById('btn-apply'));
-}
-
-function pollStatus() {
-    fetch('/api/status').then(r=>r.json()).then(data=>{
-        const logEl = document.getElementById('job-log');
-        logEl.innerHTML = (data.log||[]).map(l=>`<div class="line">${esc(l)}</div>`).join('');
-        logEl.scrollTop = logEl.scrollHeight;
-        document.getElementById('job-status').textContent =
-            data.status==='done' ? '[ COMPLETE ]' : data.status==='error' ? '[ ERROR ]' : '[ WORKING... ]';
-        const p = data.progress||{};
-        const wrap=document.getElementById('progress-wrap'), fill=document.getElementById('progress-fill'), label=document.getElementById('progress-label');
-        if (p.total>0) {
-            const pct=Math.min(100,Math.round(p.current/p.total*100));
-            wrap.classList.add('visible'); fill.style.width=pct+'%';
-            label.textContent = p.phase==='scanning' ? `Scanning: ${p.current.toLocaleString()} / ${p.total.toLocaleString()} (${pct}%)` :
-                p.phase==='deduping' ? `Finding dupes: ${p.current.toLocaleString()} / ${p.total.toLocaleString()} (${pct}%)` : '';
-        } else if (p.current>0) {
-            wrap.classList.add('visible'); fill.style.width='100%';
-            label.textContent=`Scanned ${p.current.toLocaleString()} tracks`;
-        }
-        if (!data.running && (data.status==='done'||data.status==='error')) {
-            clearInterval(pollTimer); setButtonsDisabled(false);
-            if (data.status==='done') {
-                loadPipeline();
-                const phase = data.progress&&data.progress.phase;
-                if (phase==='tags') { document.getElementById('job-hint').textContent='Opening Tag Fixer...'; setTimeout(()=>window.location.href='/tags',900); }
-                else if (phase==='album_dupes') { document.getElementById('job-hint').textContent='Opening Album Dupes...'; setTimeout(()=>window.location.href='/album-dupes',900); }
-                else if (phase==='find_dupes'||phase==='deduping') { document.getElementById('job-hint').textContent='Opening Dupes...'; setTimeout(()=>window.location.href='/dupes',900); }
-                else { document.getElementById('job-hint').textContent='Done'; setTimeout(()=>window.location.reload(),1200); }
-            } else {
-                document.getElementById('job-status').textContent = '[ ERROR ]';
-                document.getElementById('job-hint').textContent='Check log for details';
-                document.getElementById('job-spinner').style.display = 'none';
-            }
-        }
-    });
-}
-
-function toggleDanger() {
-    const b=document.getElementById('danger-body'), c=document.getElementById('danger-chevron');
-    const open=b.style.display==='block'; b.style.display=open?'none':'block'; c.textContent=open?'[ EXPAND ]':'[ COLLAPSE ]';
-}
-
-function eraseDatabase() {
-    if (!confirm('ERASE TRACK DATABASE?\n\nYour music files are NOT affected.\nYou will need to run a full scan afterwards.')) return;
-    if (!confirm('FINAL WARNING — ARE YOU SURE?\nPress OK to confirm.')) return;
-    fetch('/api/erase_database',{method:'POST'}).then(r=>r.json()).then(d=>{
+    const cards = Array.from(document.querySelectorAll('.group-card:not(.hidden)'));
+    const totalMB = cards.reduce((s,c)=>s+parseFloat(c.dataset.size||0)/1048576,0);
+    const sizeStr = totalMB>1024?(totalMB/1024).toFixed(1)+' GB':totalMB.toFixed(1)+' MB';
+    if (!confirm(`MOVE DUPLICATES TO /DUPLICATES?\n\n${cards.length} GROUPS · ${sizeStr} TO FREE\nFILES NOT DELETED — FULLY UNDOABLE.\n\nPROCEED?`)) return;
+    fetch('/api/apply_all',{method:'POST'}).then(r=>r.json()).then(d=>{
         if(d.error) alert('Error: '+d.error);
-        else { alert('DATABASE ERASED. Run a scan to rebuild.'); window.location.reload(); }
+        else { alert('Done. Files moved to /duplicates.'); window.location.href='/'; }
     }).catch(()=>alert('Request failed.'));
 }
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-loadPipeline();
-fetch('/api/status').then(r=>r.json()).then(data=>{
-    if (data.running) {
-        setButtonsDisabled(true);
-        document.getElementById('job-panel').classList.remove('idle');
-        document.getElementById('job-idle-msg').style.display = 'none';
-        document.getElementById('job-log').style.display = 'block';
-        document.getElementById('job-spinner').style.display = '';
-        pollTimer=setInterval(pollStatus,1500);
-    }
-});
+applyVisibility();
 </script>
 </body>
 </html>

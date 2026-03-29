@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duparr — Help</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:           #000000;
+            --surface:      #000000;
+            --border:       #FFFFFF;
+            --border-bright:#FFFF00;
+            --bright:       #FFFF00;
+            --text:         #FFFFFF;
+            --muted:        #00FFFF;
+            --cyan:         #00FFFF;
+            --accent:       #FFFF00;
+            --ok:           #00FF00;
+            --green:        #00FF00;
+            --danger:       #FF0000;
+            --red:          #FF0000;
+            --warn:         #FF00FF;
+            --magenta:      #FF00FF;
+            --dim:          #999999;
+            --vdim:         #777777;
+            --font-mono:    'VT323', monospace;
+            --font:         'VT323', monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 20px; line-height: 1.4; min-height: 100vh; text-transform: uppercase; }
+        header { background: var(--surface); border-bottom: 4px solid var(--border-bright); padding: 15px 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .logo { font-size: 32px; color: var(--accent); letter-spacing: 2px; }
+        .logo span { color: var(--muted); font-size: 20px; margin-left: 10px; }
+        nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        nav a { font-size: 20px; padding: 4px 10px; border: 2px solid var(--border); color: var(--text); text-decoration: none; background: var(--bg); }
+        nav a::before { content: "[ "; color: var(--muted); }
+        nav a::after  { content: " ]"; color: var(--muted); }
+        nav a:hover, nav a.active { background: var(--border-bright); color: var(--bg); border-color: var(--border-bright); }
+        nav a:hover::before, nav a.active::before, nav a:hover::after, nav a.active::after { color: var(--bg); }
+        nav a.help-q::before, nav a.help-q::after { content: ""; }
+        nav a.help-q { border-color: var(--muted); color: var(--muted); padding: 4px 10px; }
+
+        main { max-width: 900px; margin: 0 auto; padding: 25px 20px 60px; }
+
+        h1 { font-size: 32px; color: var(--accent); margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        h2 { font-size: 24px; color: var(--accent); margin: 30px 0 12px; border-bottom: 1px dashed #444; padding-bottom: 6px; }
+
+        .workflow { border: 2px solid var(--border-bright); margin-bottom: 30px; }
+        .workflow-title { padding: 12px 16px; background: #0a0a00; color: var(--accent); font-size: 22px; border-bottom: 2px solid #444; }
+        .step { display: flex; gap: 16px; padding: 14px 16px; border-bottom: 1px solid #222; align-items: flex-start; }
+        .step:last-child { border-bottom: none; }
+        .step-num { font-size: 32px; color: var(--accent); min-width: 36px; flex-shrink: 0; line-height: 1; }
+        .step-label { font-size: 20px; color: var(--ok); margin-bottom: 4px; }
+        .btn-ref { font-size: 16px; padding: 1px 6px; border: 2px solid var(--ok); color: var(--ok); margin-left: 8px; }
+        .step-desc { color: var(--muted); font-size: 17px; margin-bottom: 4px; }
+        .step-warn { color: var(--warn); font-size: 16px; margin-top: 4px; }
+
+        .section { border: 2px solid var(--border); margin-bottom: 14px; }
+        .section-header { padding: 10px 14px; border-bottom: 1px solid #333; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #080808; }
+        .section-title { font-size: 22px; color: var(--accent); }
+        .tag-ok { font-size: 14px; padding: 2px 8px; border: 2px solid var(--ok); color: var(--ok); }
+        .tag-warn { font-size: 14px; padding: 2px 8px; border: 2px solid var(--warn); color: var(--warn); }
+        .section-body { padding: 14px 16px; color: var(--muted); font-size: 17px; line-height: 1.5; }
+        .section-body strong { color: var(--text); }
+
+        .rule { padding: 3px 0; color: var(--ok); font-size: 16px; }
+        .rule::before { content: "✓ "; }
+        .warn-rule { padding: 3px 0; color: var(--warn); font-size: 16px; }
+        .warn-rule::before { content: "⚠ "; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 17px; }
+        th { color: var(--muted); text-align: left; padding: 6px 10px; border-bottom: 2px solid var(--border); }
+        td { padding: 6px 10px; border-bottom: 1px solid #222; }
+        td:first-child { color: var(--accent); }
+
+        @media (max-width: 600px) {
+            .step { flex-direction: column; }
+            .step-num { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="logo">DUPARR <span>[ HOW IT WORKS ]</span></div>
+    <nav>
+        <a href="/">DASHBOARD</a>
+        <a href="/tags">TAGS</a>
+        <a href="/album-dupes">ALBUM DUPES</a>
+        <a href="/dupes">DUPES</a>
+        <a href="/undo">UNDO</a>
+        <a href="/help" class="active">HELP</a>
+    </nav>
+</header>
+
+<main>
+<h1>HOW IT WORKS</h1>
+
+<div class="workflow">
+    <div class="workflow-title">⚡ RECOMMENDED ORDER OF OPERATIONS</div>
+    <div class="step"><div class="step-num">1</div><div>
+        <div class="step-label">SCAN LIBRARY <span class="btn-ref">* SCAN LIBRARY</span></div>
+        <div class="step-desc">Indexes all audio files into the database. Run this first. Subsequent scans are incremental — only new or changed files are processed. Does NOT run duplicate detection.</div>
+    </div></div>
+    <div class="step"><div class="step-num">2</div><div>
+        <div class="step-label">CLEAN COLLECTION TAGS <span class="btn-ref">✦ CLEAN TAGS</span></div>
+        <div class="step-desc">Fixes albums where the tag contains collection path junk like "1989 - GREATEST HITS • Roy Orbison - 40 Greatest Hits". Extracts the real artist and album title and writes them to the files. Skippable if your library doesn't have these.</div>
+    </div></div>
+    <div class="step"><div class="step-num">3</div><div>
+        <div class="step-label">FIX TAGS <span class="btn-ref">~ FIX TAGS</span></div>
+        <div class="step-desc">Fixes Album Artist tags on compilations and single-artist albums with featured guests. Smart detection — sets the correct artist, not just "Various Artists" for everything. Pitbull albums → Album Artist = Pitbull. Genuine compilations → Various Artists.</div>
+        <div class="step-warn">⚠ Run before deduplication — correct tags improve detection accuracy. Skip if not needed.</div>
+    </div></div>
+    <div class="step"><div class="step-num">4</div><div>
+        <div class="step-label">ALBUM DUPES <span class="btn-ref">@ ALBUM DUPES</span></div>
+        <div class="step-desc">Finds entire folders that are duplicate albums. Moves the weaker copy atomically — never leaves partial albums. Requires 3+ matched tracks. Ignores disc subfolders (CD1/CD2, Digital Media 01/02).</div>
+        <div class="step-warn">⚠ Must run BEFORE track-level dedup to avoid creating partial albums.</div>
+    </div></div>
+    <div class="step"><div class="step-num">5</div><div>
+        <div class="step-label">RESCAN <span class="btn-ref">↺ RESCAN</span></div>
+        <div class="step-desc">Rescan after moving album duplicates to update the database before track-level dedup.</div>
+    </div></div>
+    <div class="step"><div class="step-num">6</div><div>
+        <div class="step-label">FIND DUPES <span class="btn-ref">? FIND DUPES</span></div>
+        <div class="step-desc">Detects individual duplicate tracks. Groups by artist + title, scores each by quality. Results appear on the Dupes page.</div>
+    </div></div>
+    <div class="step"><div class="step-num">7</div><div>
+        <div class="step-label">REVIEW AND APPLY <span class="btn-ref">&gt; APPLY ALL</span></div>
+        <div class="step-desc">Review duplicate groups on the Dupes page. Apply HIGH confidence first. Every move is fully undoable from the Undo page.</div>
+    </div></div>
+    <div class="step"><div class="step-num">8</div><div>
+        <div class="step-label">COVERS <span class="btn-ref"># COVERS</span></div>
+        <div class="step-desc">Finds and embeds missing album artwork. Tries MusicBrainz, Deezer, iTunes, and Last.fm in order. Run any time — works independently of the pipeline.</div>
+    </div></div>
+</div>
+
+<h2>QUALITY SCORING</h2>
+<div class="section">
+    <div class="section-body">
+        <div style="margin-bottom:10px;">Each track is scored to determine the keeper — higher score wins.</div>
+        <table>
+            <tr><th>CONDITION</th><th>POINTS</th></tr>
+            <tr><td>FLAC</td><td style="color:var(--ok);">+100</td></tr>
+            <tr><td>AAC / OGG / Opus</td><td style="color:var(--ok);">+50</td></tr>
+            <tr><td>MP3</td><td style="color:var(--ok);">+30</td></tr>
+            <tr><td>Bitrate (proportional)</td><td style="color:var(--ok);">+0 to +50</td></tr>
+            <tr><td>Complete tags</td><td style="color:var(--ok);">+10</td></tr>
+            <tr><td>Has embedded artwork</td><td style="color:var(--ok);">+5</td></tr>
+            <tr><td>Filesize tiebreaker</td><td style="color:var(--ok);">+0 to +10</td></tr>
+            <tr><td>Inside _collections folder</td><td style="color:var(--danger);">−100</td></tr>
+            <tr><td>Compilation album tag</td><td style="color:var(--danger);">−40</td></tr>
+        </table>
+    </div>
+</div>
+
+<h2>COVER ART SOURCES</h2>
+<div class="section">
+    <div class="section-body">
+        Tried in order until a cover meeting the minimum size is found:
+        <table>
+            <tr><th>SOURCE</th><th>NOTES</th></tr>
+            <tr><td>MUSICBRAINZ</td><td>Primary — large catalogue, high quality</td></tr>
+            <tr><td>DEEZER</td><td>No API key needed — excellent quality</td></tr>
+            <tr><td>ITUNES</td><td>Good fallback — upgraded to 600px</td></tr>
+            <tr><td>LAST.FM</td><td>Requires LASTFM_API_KEY env var</td></tr>
+        </table>
+    </div>
+</div>
+
+<h2>SAFETY</h2>
+<div class="section">
+    <div class="section-body">
+        <div class="rule">Nothing is ever deleted — files moved to /duplicates only</div>
+        <div class="rule">Every move logged to database</div>
+        <div class="rule">Full undo available from Undo page</div>
+        <div class="rule">Path traversal attacks blocked on all file operations</div>
+        <div class="rule">Same-folder tracks require fingerprint confirmation, not just metadata</div>
+        <div class="rule">Variants (remixes, live, acoustic) always preserved — never moved</div>
+    </div>
+</div>
+
+<h2>TAG FIXER — FALSE POSITIVE PATTERNS</h2>
+<div class="section">
+    <div class="section-body">
+        <div style="color:var(--accent);margin-bottom:4px;">SINGLE ARTIST WITH FEATURED GUESTS</div>
+        <div style="margin-bottom:12px;">e.g. Calvin Harris — Motion. The smart dominant artist detection now handles these — sets Album Artist = Calvin Harris, not Various Artists. Watch for edge cases.</div>
+        <div style="color:var(--accent);margin-bottom:4px;">SPAM / WATERMARK TOKENS IN ARTIST FIELD</div>
+        <div style="margin-bottom:12px;">Some download collections embed site names (e.g. LanzamientosMp3.es) in the Artist tag. These are filtered out automatically when detecting the dominant artist.</div>
+        <div style="color:var(--accent);margin-bottom:4px;">COMPOSER CREDITS IN ARTIST FIELD</div>
+        <div>Old jazz or classical albums with composer names in the Artist tag rather than the performer. Use MusicBrainz Picard for these.</div>
+    </div>
+</div>
+
+</main>
+</body>
+</html>
