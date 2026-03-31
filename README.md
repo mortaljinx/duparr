@@ -43,7 +43,7 @@ Duparr is built for real-world, messy libraries:
 - ⚡ **Incremental scanning** — after the first run, only new or changed files are processed
 - 🌐 **Web UI** — review groups, apply changes, undo moves, and monitor progress live
 - ↩️ **Full undo** — restore any moved file or album folder to its original location
-- 🖼 **Cover art fetcher** — automatically finds and embeds missing album art from MusicBrainz and iTunes
+- 🖼 **Cover art fetcher** — automatically finds and embeds missing album art from MusicBrainz, Deezer, iTunes, and Last.fm
 - 🔐 **Optional auth** — basic auth via env var, off by default for trusted LAN use
 
 ---
@@ -197,7 +197,7 @@ All options are set via environment variables in `docker-compose.yml`.
 | `MIN_SCORE_GAP` | `0` | Minimum quality gap before flagging a duplicate. Raise to `10` to skip near-equal files |
 | `COLLECTIONS_PENALTY` | `100` | Score penalty for tracks inside a `_collections` folder |
 | `EXCLUDE_DIRS` | _(empty)_ | Comma-separated directory paths to skip during scanning |
-| `COVER_SOURCES` | `musicbrainz,itunes` | Cover art sources in priority order |
+| `COVER_SOURCES` | `musicbrainz,deezer,itunes` | Cover art sources in priority order |
 | `COVER_MIN_SIZE` | `300` | Minimum cover dimension in pixels |
 | `COVER_EMBED` | `true` | Embed cover art into audio files |
 | `COVER_SAVE_FILE` | `true` | Save `cover.jpg` alongside tracks |
@@ -244,8 +244,9 @@ Single-word path matching (`mix`, `edit`, `version`) is intentionally avoided �
 Click **# COVERS** in the dashboard to fetch missing album art.
 
 - Groups tracks by folder — one fetch per album
-- Sources tried in order: MusicBrainz Cover Art Archive → iTunes → Last.fm (if API key set)
+- Sources tried in order: MusicBrainz Cover Art Archive → Deezer → iTunes → Last.fm (if API key set)
 - Cleans search queries automatically — strips junk from album names before searching
+- Falls back to original (uncleaned) query if the cleaned version returns nothing
 - Embeds into MP3 (ID3), FLAC (Vorbis), M4A/AAC (iTunes atoms), OGG, Opus
 - Saves `cover.jpg` alongside tracks for Navidrome / Symfonium compatibility
 

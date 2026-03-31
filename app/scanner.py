@@ -22,9 +22,10 @@ class Scanner:
         self.db = db
 
     def scan(self) -> int:
-        count = 0
-        skipped = 0
-        fp_errors = 0
+        count      = 0
+        skipped    = 0
+        fp_errors  = 0
+        unreadable = 0
 
         # Remove stale DB entries for files no longer on disk
         removed = self.db.cleanup_missing()
